@@ -256,15 +256,16 @@ class TelemetrySimulatorService {
 
     // Persist updated sensors in a single batch upsert
     if (isSupabaseConfigured && updatedSensors.length > 0) {
-      const sensorDbRows = updatedSensors.map((s) => ({
-        id: s.id,
-        farm_id: s.farmId,
-        plot_id: s.plotId,
-        sensor_code: s.sensorCode,
-        sensor_type: s.type,
-        assigned_plot_code: s.assignedPlotCode,
-        current_reading: s.currentReading,
-        last_ping: s.lastPing,
+     const sensorDbRows = updatedSensors.map((s) => ({
+  id: s.id,
+  farm_id: s.farmId ?? null,
+  plot_id: s.plotId ?? null,
+  sensor_code: s.sensorCode ?? s.id,
+  sensor_type: s.type ?? 'unknown',
+  assigned_plot_code: s.assignedPlotCode ?? null,
+  current_reading: s.currentReading ?? null,
+  last_ping: s.lastPing ?? new Date().toISOString(),
+}));
       }));
       Promise.resolve(supabase.from('sensors').upsert(sensorDbRows))
         .then(() => {})
