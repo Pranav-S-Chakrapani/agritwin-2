@@ -307,7 +307,9 @@ export function subscribeToSupabaseMultiTable(
       'farms',
       () => {
         if (onFarmsUpdate) {
-          supabase.from('farms').select('*').then(({ data }) => { if (data) onFarmsUpdate(data); });
+          debouncedRefetch('farms', () => {
+            supabase.from('farms').select('*').then(({ data }) => { if (data) onFarmsUpdate(data); });
+          });
         }
       },
       'FARMS'
@@ -320,7 +322,9 @@ export function subscribeToSupabaseMultiTable(
       'plots',
       () => {
         if (onPlotsUpdate) {
-          supabase.from('plots').select('*').then(({ data }) => { if (data) onPlotsUpdate(data); });
+          debouncedRefetch('plots', () => {
+            supabase.from('plots').select('*').then(({ data }) => { if (data) onPlotsUpdate(data); });
+          });
         }
       },
       'PLOTS'
