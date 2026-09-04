@@ -27,6 +27,11 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON
     },
   },
 });
+const debounceTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+function debouncedRefetch(key: string, fn: () => void, delayMs: number = 1500) {
+  if (debounceTimers[key]) clearTimeout(debounceTimers[key]);
+  debounceTimers[key] = setTimeout(fn, delayMs);
+}
 
 console.log(
   `%c[SUPABASE CLIENT] Initialized`,
@@ -328,7 +333,9 @@ export function subscribeToSupabaseMultiTable(
       'sensors',
       () => {
         if (onSensorsUpdate) {
-          supabase.from('sensors').select('*').then(({ data }) => { if (data) onSensorsUpdate(data); });
+          debouncedRefetch('sensors', () => {
+            supabase.from('sensors').select('*').then(({ data }) => { if (data) onSensorsUpdate(data); });
+          });
         }
       },
       'SENSORS'
