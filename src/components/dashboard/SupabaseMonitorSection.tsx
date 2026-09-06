@@ -78,26 +78,27 @@ export const SupabaseMonitorSection: React.FC = () => {
     };
   }, []);
 
-  // 2. Fetch connection & count metrics (Auto refresh every 5 seconds)
+  // 2. Fetch connection & count metrics (Relaxed polling to prevent gateway 500s)
   const refreshMetrics = async () => {
     setIsRefreshing(true);
     try {
       const conn = await checkSupabaseConnection();
       setConnStatus(conn);
 
-      const m = await getTelemetryCount();
-      setMetrics(m);
+      if (conn.connected) {
+        const m = await getTelemetryCount();
+        setMetrics(m);
 
-      // Also fetch table-level row counts from Supabase
-      const counts = await getSupabaseTableCounts();
-      setTableCounts({
-        farmsCount: counts.farmsCount || safeFarms.length,
-        plotsCount: counts.plotsCount || safePlots.length,
-        sensorsCount: counts.sensorsCount || safeSensors.length,
-        telemetryCount: counts.telemetryCount || safeObs.length,
-      });
+        const counts = await getSupabaseTableCounts();
+        setTableCounts({
+          farmsCount: counts.farmsCount || safeFarms.length,
+          plotsCount: counts.plotsCount || safePlots.length,
+          sensorsCount: counts.sensorsCount || safeSensors.length,
+          telemetryCount: counts.telemetryCount || safeObs.length,
+        });
+      }
     } catch (e) {
-      console.warn('[SUPABASE MONITOR REFRESH ERROR]', e);
+      // Silently fall back to in-memory state without spamming console
     } finally {
       setIsRefreshing(false);
     }
@@ -107,7 +108,7 @@ export const SupabaseMonitorSection: React.FC = () => {
     refreshMetrics();
     const interval = setInterval(() => {
       refreshMetrics();
-    }, 5000);
+    }, 15000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -42,6 +42,14 @@ console.log(
 );
 
 // ── Column mapper: Farmland ──────────────────────────────────────────────────
+const DEFAULT_FARM_AREAS: Record<string, number> = {
+  farm_iiit_dharwad: 18.5,
+  farm_smart_demo: 24.0,
+  farm_precision_center: 32.5,
+  farm_organic_research: 15.0,
+  farm_digital_twin: 40.0,
+};
+
 export const mapFarmToRow = (f: Farmland) => ({
   id: f.id,
   name: f.name,
@@ -50,31 +58,37 @@ export const mapFarmToRow = (f: Farmland) => ({
   owner_name: f.ownerName || f.contactPerson || null,
   contact_phone: f.contactPhone || null,
   contact_role: f.contactRole || 'Owner',
-  total_area: f.totalArea,
+  total_area: f.totalArea || DEFAULT_FARM_AREAS[f.id] || 20,
   unit: f.unit || 'acres',
   sections_count: f.sectionsCount || 5,
-  sensors_count: f.sensorsCount || 0,
+  sensors_count: f.sensorsCount || 30,
   health_score: f.healthScore || 90,
   created_at: f.createdAt,
 });
 
-export const mapRowToFarm = (row: any): Farmland => ({
-  id: row.id,
-  name: row.name,
-  location: row.location,
-  address: row.address || undefined,
-  ownerName: row.owner_name || undefined,
-  contactPerson: row.owner_name || row.contact_person || 'Farm Manager',
-  contactPhone: row.contact_phone || undefined,
-  contactRole: row.contact_role || 'Owner',
-  totalArea: Number(row.total_area) || 0,
-  unit: row.unit || 'acres',
-  sectionsCount: Number(row.sections_count) || 5,
-  sensorsCount: Number(row.sensors_count) || 0,
-  healthScore: Number(row.health_score) || 90,
-  createdAt: row.created_at || new Date().toISOString(),
-  lastUpdate: row.last_update || row.updated_at || new Date().toISOString(),
-});
+export const mapRowToFarm = (row: any): Farmland => {
+  const fallbackArea = DEFAULT_FARM_AREAS[row.id] || 20.0;
+  const parsedArea = Number(row.total_area ?? row.totalArea);
+  const totalArea = !isNaN(parsedArea) && parsedArea > 0 ? parsedArea : fallbackArea;
+
+  return {
+    id: row.id,
+    name: row.name,
+    location: row.location,
+    address: row.address || undefined,
+    ownerName: row.owner_name || undefined,
+    contactPerson: row.owner_name || row.contact_person || 'Farm Manager',
+    contactPhone: row.contact_phone || undefined,
+    contactRole: row.contact_role || 'Owner',
+    totalArea,
+    unit: row.unit || 'acres',
+    sectionsCount: Number(row.sections_count || row.sectionsCount) || 5,
+    sensorsCount: Number(row.sensors_count || row.sensorsCount) || 30,
+    healthScore: Number(row.health_score || row.healthScore) || 90,
+    createdAt: row.created_at || new Date().toISOString(),
+    lastUpdate: row.last_update || row.updated_at || new Date().toISOString(),
+  };
+};
 
 // ── Column mapper: PlotBed ───────────────────────────────────────────────────
 export const mapPlotToRow = (p: PlotBed) => ({
@@ -352,6 +366,9 @@ export function subscribeToSupabaseMultiTable(
       if (!error && data && data.length > 0) {
         onTelemetry(data.map(mapSupabaseRowToObs));
       }
+    })
+    .catch((err) => {
+      console.warn('[SUPABASE HYDRATE NOTICE]', err?.message || 'Using local in-memory fallback.');
     });
 
   let channelCounter = 0;
