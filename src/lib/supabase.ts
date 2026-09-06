@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import { TelemetryObservation, FieldActivity, FarmAlert } from '../types';
+import { Farmland, PlotBed, IoTSensor, TelemetryObservation, FieldActivity, FarmAlert } from '../types';
 
 const DEFAULT_SUPABASE_URL = 'https://wuxoulvgscbjpgyngyiw.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_blRwFF9JR2iHR_TIVaEL-Q_NpdqyKF5';
@@ -41,6 +41,115 @@ console.log(
     : 'Standby Mode (Set VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY)'
 );
 
+// ── Column mapper: Farmland ──────────────────────────────────────────────────
+export const mapFarmToRow = (f: Farmland) => ({
+  id: f.id,
+  name: f.name,
+  location: f.location,
+  address: f.address || null,
+  owner_name: f.ownerName || f.contactPerson || null,
+  contact_phone: f.contactPhone || null,
+  contact_role: f.contactRole || 'Owner',
+  total_area: f.totalArea,
+  unit: f.unit || 'acres',
+  sections_count: f.sectionsCount || 5,
+  sensors_count: f.sensorsCount || 0,
+  health_score: f.healthScore || 90,
+  created_at: f.createdAt,
+});
+
+export const mapRowToFarm = (row: any): Farmland => ({
+  id: row.id,
+  name: row.name,
+  location: row.location,
+  address: row.address || undefined,
+  ownerName: row.owner_name || undefined,
+  contactPerson: row.owner_name || row.contact_person || 'Farm Manager',
+  contactPhone: row.contact_phone || undefined,
+  contactRole: row.contact_role || 'Owner',
+  totalArea: Number(row.total_area) || 0,
+  unit: row.unit || 'acres',
+  sectionsCount: Number(row.sections_count) || 5,
+  sensorsCount: Number(row.sensors_count) || 0,
+  healthScore: Number(row.health_score) || 90,
+  createdAt: row.created_at || new Date().toISOString(),
+  lastUpdate: row.last_update || row.updated_at || new Date().toISOString(),
+});
+
+// ── Column mapper: PlotBed ───────────────────────────────────────────────────
+export const mapPlotToRow = (p: PlotBed) => ({
+  id: p.id,
+  farm_id: p.farmId || null,
+  code: p.code,
+  name: p.name,
+  area: p.area,
+  area_unit: p.areaUnit || 'acres',
+  crop_id: p.cropId || null,
+  crop_type: p.cropType || null,
+  growth_stage: p.growthStage || null,
+  sensor_node_id: p.sensorNodeId || null,
+  irrigation_status: p.irrigationStatus || 'Scheduled',
+  soil_health_score: p.soilHealthScore || 88,
+  soil_moisture: p.soilMoisture || null,
+  air_temp: p.airTemp || null,
+  soil_ph: p.soilPh || null,
+  humidity: p.humidity || 60,
+  days_planted: p.daysPlanted || 0,
+  is_watering: Boolean(p.isWatering),
+  created_at: p.createdAt || new Date().toISOString(),
+});
+
+export const mapRowToPlot = (row: any): PlotBed => ({
+  id: row.id,
+  farmId: row.farm_id || row.farmId || undefined,
+  code: row.code || '',
+  name: row.name || row.code || 'Plot',
+  area: Number(row.area) || 0,
+  areaUnit: row.area_unit || row.areaUnit || 'acres',
+  cropId: row.crop_id || row.cropId || null,
+  cropType: row.crop_type || row.cropType || undefined,
+  growthStage: row.growth_stage || row.growthStage || undefined,
+  sensorNodeId: row.sensor_node_id || row.sensorNodeId || row.code || 'NODE-01',
+  sensorId: row.sensor_id || row.sensorId || row.sensor_node_id || undefined,
+  irrigationStatus: row.irrigation_status || row.irrigationStatus || 'Scheduled',
+  soilHealthScore: Number(row.soil_health_score ?? row.soilHealthScore ?? 90),
+  soilMoisture: Number(row.soil_moisture ?? row.soilMoisture ?? 50),
+  airTemp: Number(row.air_temp ?? row.airTemp ?? 25),
+  soilPh: Number(row.soil_ph ?? row.soilPh ?? 6.5),
+  humidity: Number(row.humidity ?? 60),
+  daysPlanted: Number(row.days_planted ?? row.daysPlanted ?? 0),
+  isWatering: Boolean(row.is_watering ?? row.isWatering),
+  createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+});
+
+// ── Column mapper: IoTSensor ─────────────────────────────────────────────────
+export const mapSensorToRow = (s: IoTSensor) => ({
+  id: s.id,
+  farm_id: s.farmId || null,
+  plot_id: s.plotId || null,
+  sensor_code: s.sensorCode || s.id,
+  sensor_type: s.type || 'Sensor',
+  assigned_plot_code: s.assignedPlotCode || null,
+  battery_pct: s.batteryPct ?? 95,
+  status: s.status || 'Online',
+  last_ping: s.lastPing || new Date().toISOString(),
+  current_reading: s.currentReading || null,
+});
+
+export const mapRowToSensor = (row: any): IoTSensor => ({
+  id: row.id,
+  farmId: row.farm_id || row.farmId || undefined,
+  plotId: row.plot_id || row.plotId || undefined,
+  sensorCode: row.sensor_code || row.sensorCode || row.id,
+  nodeName: row.node_name || row.nodeName || row.name || 'Sensor Node',
+  assignedPlotCode: row.assigned_plot_code || row.assignedPlotCode || '',
+  type: row.sensor_type || row.type || 'soil_multi',
+  batteryPct: Number(row.battery_pct ?? row.batteryPct ?? 100),
+  status: (row.status === 'Offline' ? 'Offline' : 'Online') as 'Online' | 'Offline',
+  lastPing: row.last_ping || row.lastPing || new Date().toISOString(),
+  currentReading: row.current_reading || row.currentReading || undefined,
+});
+
 // ── Column mapper: TelemetryObservation → Supabase row ──────────────────────
 export const mapObsToSupabaseRow = (obs: TelemetryObservation) => ({
   id: obs.id,
@@ -63,18 +172,18 @@ export const mapObsToSupabaseRow = (obs: TelemetryObservation) => ({
 // ── Column mapper: Supabase row → TelemetryObservation ──────────────────────
 export const mapSupabaseRowToObs = (row: any): TelemetryObservation => ({
   id: row.id,
-  farmId: row.farm_id,
-  plotId: row.plot_id,
-  deviceId: row.device_id,
-  sensorId: row.sensor_id,
-  parameterKey: row.parameter_key,
-  displayName: row.display_name,
+  farmId: row.farm_id || row.farmId,
+  plotId: row.plot_id || row.plotId,
+  deviceId: row.device_id || row.deviceId,
+  sensorId: row.sensor_id || row.sensorId,
+  parameterKey: row.parameter_key || row.parameterKey,
+  displayName: row.display_name || row.displayName,
   value: Number(row.value),
   unit: row.unit,
-  measurementTimestamp: row.measurement_timestamp,
-  receivedTimestamp: row.received_timestamp,
-  qualityStatus: row.quality_status as any,
-  dataSource: row.data_source as any,
+  measurementTimestamp: row.measurement_timestamp || row.measurementTimestamp,
+  receivedTimestamp: row.received_timestamp || row.receivedTimestamp,
+  qualityStatus: (row.quality_status || row.qualityStatus || 'VALID') as any,
+  dataSource: (row.data_source || row.dataSource || 'SIMULATED') as any,
   notes: row.notes || undefined,
   metadata: row.metadata || {},
 });
@@ -97,14 +206,14 @@ export const mapActivityToRow = (act: FieldActivity) => ({
 export const mapRowToActivity = (row: any): FieldActivity => ({
   id: row.id,
   timestamp: row.timestamp || row.created_at,
-  farmId: row.farm_id,
-  plotId: row.plot_id,
-  sensorId: row.sensor_id,
-  eventType: row.event_type,
+  farmId: row.farm_id || row.farmId,
+  plotId: row.plot_id || row.plotId,
+  sensorId: row.sensor_id || row.sensorId,
+  eventType: row.event_type || row.eventType,
   title: row.title,
   description: row.description,
   severity: row.severity,
-  createdBy: row.created_by,
+  createdBy: row.created_by || row.createdBy,
   metadata: row.metadata || {},
 });
 
@@ -129,20 +238,20 @@ export const mapAlertToRow = (alert: FarmAlert) => ({
 
 export const mapRowToAlert = (row: any): FarmAlert => ({
   id: row.id,
-  farmId: row.farm_id,
-  plotId: row.plot_id,
-  sensorId: row.sensor_id,
-  alertType: row.alert_type,
+  farmId: row.farm_id || row.farmId,
+  plotId: row.plot_id || row.plotId,
+  sensorId: row.sensor_id || row.sensorId,
+  alertType: row.alert_type || row.alertType,
   title: row.title,
   message: row.message,
   severity: row.severity,
   status: row.status,
-  parameterKey: row.parameter_key,
+  parameterKey: row.parameter_key || row.parameterKey,
   value: row.value ? Number(row.value) : undefined,
   threshold: row.threshold ? Number(row.threshold) : undefined,
-  createdAt: row.created_at,
-  resolvedAt: row.resolved_at,
-  resolvedBy: row.resolved_by,
+  createdAt: row.created_at || row.createdAt,
+  resolvedAt: row.resolved_at || row.resolvedAt,
+  resolvedBy: row.resolved_by || row.resolvedBy,
 });
 
 // ── Toast Event Emitter ──────────────────────────────────────────────────────
@@ -308,7 +417,11 @@ export function subscribeToSupabaseMultiTable(
       () => {
         if (onFarmsUpdate) {
           debouncedRefetch('farms', () => {
-            supabase.from('farms').select('*').then(({ data }) => { if (data) onFarmsUpdate(data); });
+            supabase.from('farms').select('*').then(({ data }) => {
+              if (data && data.length > 0) {
+                onFarmsUpdate(data.map(mapRowToFarm));
+              }
+            });
           });
         }
       },
@@ -323,7 +436,11 @@ export function subscribeToSupabaseMultiTable(
       () => {
         if (onPlotsUpdate) {
           debouncedRefetch('plots', () => {
-            supabase.from('plots').select('*').then(({ data }) => { if (data) onPlotsUpdate(data); });
+            supabase.from('plots').select('*').then(({ data }) => {
+              if (data && data.length > 0) {
+                onPlotsUpdate(data.map(mapRowToPlot));
+              }
+            });
           });
         }
       },
@@ -338,7 +455,11 @@ export function subscribeToSupabaseMultiTable(
       () => {
         if (onSensorsUpdate) {
           debouncedRefetch('sensors', () => {
-            supabase.from('sensors').select('*').then(({ data }) => { if (data) onSensorsUpdate(data); });
+            supabase.from('sensors').select('*').then(({ data }) => {
+              if (data && data.length > 0) {
+                onSensorsUpdate(data.map(mapRowToSensor));
+              }
+            });
           });
         }
       },

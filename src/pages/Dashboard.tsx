@@ -417,9 +417,10 @@ export const Dashboard: React.FC = () => {
         <div className="space-y-3">
           {filteredFarms.map((farm) => {
             const isExpanded = Boolean(expandedFarms[farm.id]);
-            const farmPlots = plots.filter(p => p.farmId === farm.id);
-            const farmSensors = sensors.filter(s => s.farmId === farm.id);
-            const onlineSensors = farmSensors.filter(s => s.status === 'Online').length;
+            const farmPlots = PlotService.getPlotsForFarm(plots, farm.id);
+            const farmSensors = SensorService.getSensorsForFarm(sensors, farm.id);
+            const sensorCounts = SensorService.getSensorCountsForFarm(sensors, farm.id);
+            const onlineSensors = sensorCounts.active;
 
             return (
               <div key={farm.id} className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white">

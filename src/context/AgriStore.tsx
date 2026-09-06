@@ -258,7 +258,35 @@ const loadInitialState = <T,>(key: string, seed: T): T => {
       return seed;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(seed) ? ((Array.isArray(parsed) ? parsed : seed) as unknown as T) : ((parsed || seed) as T);
+    if (Array.isArray(seed)) {
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        localStorage.setItem(key, JSON.stringify(seed));
+        return seed;
+      }
+      if (key === STORE_KEYS.PLOTS) {
+        const plotArr = parsed as PlotBed[];
+        if (plotArr.length < 5 || !plotArr.some((p) => Boolean(p.farmId))) {
+          localStorage.setItem(key, JSON.stringify(seed));
+          return seed;
+        }
+      }
+      if (key === STORE_KEYS.SENSORS) {
+        const sensorArr = parsed as IoTSensor[];
+        if (sensorArr.length < 10 || !sensorArr.some((s) => Boolean(s.farmId))) {
+          localStorage.setItem(key, JSON.stringify(seed));
+          return seed;
+        }
+      }
+      if (key === STORE_KEYS.FARMLANDS) {
+        const farmArr = parsed as Farmland[];
+        if (farmArr.length < (seed as any).length) {
+          localStorage.setItem(key, JSON.stringify(seed));
+          return seed;
+        }
+      }
+      return parsed as unknown as T;
+    }
+    return (parsed || seed) as T;
   } catch (e) {
     return seed;
   }
@@ -309,9 +337,20 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   useEffect(() => {
-    saveFarmsToSupabase(farmlands);
-    savePlotsToSupabase(plots);
-    saveSensorsToSupabase(sensors);
+    // Ensure all 5 farms, 25 plots, and 150 sensors exist in state
+    if (!plots || plots.length === 0 || !plots.some((p) => p.farmId)) {
+      setPlots(SEEDED_PLOTS);
+    }
+    if (!sensors || sensors.length === 0 || !sensors.some((s) => s.farmId)) {
+      setSensors(SEEDED_SENSORS);
+    }
+    if (!farmlands || farmlands.length < SEEDED_FARMS.length) {
+      setFarmlands(SEEDED_FARMS);
+    }
+
+    saveFarmsToSupabase(farmlands.length >= SEEDED_FARMS.length ? farmlands : SEEDED_FARMS);
+    savePlotsToSupabase(plots.length >= SEEDED_PLOTS.length ? plots : SEEDED_PLOTS);
+    saveSensorsToSupabase(sensors.length >= SEEDED_SENSORS.length ? sensors : SEEDED_SENSORS);
   }, []);
 
   // ── Ingestion Boundary Physiological Validator ────────────────────────────
@@ -426,9 +465,15 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const unsubSupabase = subscribeToSupabaseMultiTable(
       processIncomingTelemetry,
-      (f) => setFarmlands(f),
-      (p) => setPlots(p),
-      (s) => setSensors(s),
+      (f) => {
+        if (f && f.length > 0) setFarmlands(f);
+      },
+      (p) => {
+        if (p && p.length > 0 && p.some((x) => Boolean(x.farmId))) setPlots(p);
+      },
+      (s) => {
+        if (s && s.length > 0 && s.some((x) => Boolean(x.farmId))) setSensors(s);
+      },
       handleRealtimeActivity,
       handleRealtimeAlert
     );
