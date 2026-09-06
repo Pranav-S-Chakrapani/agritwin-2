@@ -24,16 +24,31 @@ export const DeveloperTools: React.FC = () => {
     toggleDemoTelemetry,
     triggerTelemetrySimulationNow,
     clearSimulatedTelemetry,
+    seedMultiFarmSystem,
     telemetryObservations,
     sensors,
     activeFarmland,
   } = useAgriStore();
 
   const [isSimulating, setIsSimulating] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [showEnableModal, setShowEnableModal] = useState(false);
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'warning' | 'error' } | null>(null);
+
+  const handleRunSeeder = async () => {
+    setSeeding(true);
+    setStatusMessage({ text: 'Seeding 5 Farms, 25 Plots, 150 Sensors, 1000 Field Sensor Records...', type: 'warning' });
+    try {
+      const res = await seedMultiFarmSystem();
+      setStatusMessage({ text: res.message || 'System reseeded successfully.', type: 'success' });
+    } catch (e: any) {
+      setStatusMessage({ text: `Seeding error: ${e?.message || 'Failed'}`, type: 'error' });
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const simulatedRecordsCount = telemetryObservations.filter(o => o.dataSource === 'SIMULATED').length;
   const liveValidRecordsCount = telemetryObservations.filter(o => o.dataSource !== 'SIMULATED' && o.qualityStatus !== 'SUSPECT').length;
@@ -243,13 +258,24 @@ export const DeveloperTools: React.FC = () => {
             </p>
           </div>
 
-          <button
-            onClick={() => setShowPurgeModal(true)}
-            className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>CLEAR ALL SIMULATED RECORDS ({simulatedRecordsCount})</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleRunSeeder}
+              disabled={seeding}
+              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {seeding ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              <span>{seeding ? 'Seeding 5 Farms & 150 Sensors...' : 'RE-SEED 5 FARMS & FIXTURES'}</span>
+            </button>
+
+            <button
+              onClick={() => setShowPurgeModal(true)}
+              className="py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>PURGE SIMULATED ({simulatedRecordsCount})</span>
+            </button>
+          </div>
         </div>
       </div>
 

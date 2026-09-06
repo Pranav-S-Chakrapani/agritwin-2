@@ -92,7 +92,7 @@ export const SEEDED_FARMS: Farmland[] = [
 
 // ─── 2. DEFINITION OF THE 25 PLOTS (5 PER FARM) ──────────────────────────────
 export const SEEDED_PLOTS: PlotBed[] = [
-  // Farm 1: IIIT Dharwad Research Farm
+  // Farm 1: IIIT Dharwad Research Farm (Total: 18.5 acres)
   {
     id: 'plot_dharwad_01',
     farmId: 'farm_iiit_dharwad',
@@ -102,6 +102,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_wheat',
     cropType: 'Wheat',
+    cropVariety: 'PBW-343',
+    soilType: 'Clay Loam',
     growthStage: 'Fruiting',
     sensorNodeId: 'NODE-DHARWAD-01',
     irrigationStatus: 'Active Drip',
@@ -121,6 +123,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_rice',
     cropType: 'Rice',
+    cropVariety: 'Sona Masuri BPT-5204',
+    soilType: 'Alluvial Clay',
     growthStage: 'Vegetative',
     sensorNodeId: 'NODE-DHARWAD-02',
     irrigationStatus: 'Automated Sprinkler',
@@ -140,6 +144,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_maize',
     cropType: 'Maize',
+    cropVariety: 'Sugar-75 Sweet Corn',
+    soilType: 'Sandy Loam',
     growthStage: 'Flowering',
     sensorNodeId: 'NODE-DHARWAD-03',
     irrigationStatus: 'Scheduled',
@@ -159,6 +165,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_sugarcane',
     cropType: 'Sugarcane',
+    cropVariety: 'Co-86032 Nellikuppam',
+    soilType: 'Deep Black Loam',
     growthStage: 'Maturation',
     sensorNodeId: 'NODE-DHARWAD-04',
     irrigationStatus: 'Active Drip',
@@ -178,6 +186,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_cotton',
     cropType: 'Cotton',
+    cropVariety: 'Bt-Hybrid RCH-2',
+    soilType: 'Black Cotton Soil',
     growthStage: 'Vegetative',
     sensorNodeId: 'NODE-DHARWAD-05',
     irrigationStatus: 'Idle',
@@ -189,7 +199,7 @@ export const SEEDED_PLOTS: PlotBed[] = [
     isWatering: false
   },
 
-  // Farm 2: Smart Agriculture Demo Farm
+  // Farm 2: Smart Agriculture Demo Farm (Total: 24.0 acres)
   {
     id: 'plot_demo_01',
     farmId: 'farm_smart_demo',
@@ -199,6 +209,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_lettuce',
     cropType: 'Lettuce',
+    cropVariety: 'Butterhead Rex',
+    soilType: 'Coco Peat / Perlite Substrate',
     growthStage: 'Harvesting',
     sensorNodeId: 'NODE-DEMO-01',
     irrigationStatus: 'Active Drip',
@@ -218,6 +230,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_bell_pepper',
     cropType: 'Bell Pepper',
+    cropVariety: 'California Wonder F1',
+    soilType: 'Loamy Compost Mix',
     growthStage: 'Fruiting',
     sensorNodeId: 'NODE-DEMO-02',
     irrigationStatus: 'Automated Sprinkler',
@@ -237,6 +251,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_tomato_sth520',
     cropType: 'Tomato',
+    cropVariety: 'Sarpan F1-STH-520',
+    soilType: 'Red Sandy Loam',
     growthStage: 'Flowering',
     sensorNodeId: 'NODE-DEMO-03',
     irrigationStatus: 'Active Drip',
@@ -256,6 +272,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_strawberry',
     cropType: 'Strawberry',
+    cropVariety: 'Chandler Sweet Hybrid',
+    soilType: 'Sandy Humus Loam',
     growthStage: 'Fruiting',
     sensorNodeId: 'NODE-DEMO-04',
     irrigationStatus: 'Active Drip',
@@ -275,6 +293,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_cucumber',
     cropType: 'Cucumber',
+    cropVariety: 'Poinsett 76 Green',
+    soilType: 'Silty Loam',
     growthStage: 'Vegetative',
     sensorNodeId: 'NODE-DEMO-05',
     irrigationStatus: 'Scheduled',
@@ -286,7 +306,7 @@ export const SEEDED_PLOTS: PlotBed[] = [
     isWatering: false
   },
 
-  // Farm 3: Precision Farming Center
+  // Farm 3: Precision Farming Center (Total: 32.5 acres)
   {
     id: 'plot_prec_01',
     farmId: 'farm_precision_center',
@@ -296,6 +316,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_soybean',
     cropType: 'Soybean',
+    cropVariety: 'JS-335 Gold',
+    soilType: 'Medium Black Clay',
     growthStage: 'Vegetative',
     sensorNodeId: 'NODE-PREC-01',
     irrigationStatus: 'Automated Sprinkler',
@@ -315,6 +337,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_chilli_92',
     cropType: 'Chilli',
+    cropVariety: 'Byadgi Dabbi Special',
+    soilType: 'Red Loamy Sand',
     growthStage: 'Fruiting',
     sensorNodeId: 'NODE-PREC-02',
     irrigationStatus: 'Active Drip',
@@ -334,6 +358,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_brinjal_501',
     cropType: 'Brinjal',
+    cropVariety: 'Kudachi Local Round',
+    soilType: 'Silt Loam',
     growthStage: 'Flowering',
     sensorNodeId: 'NODE-PREC-03',
     irrigationStatus: 'Active Drip',
@@ -353,6 +379,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_okra_airavat',
     cropType: 'Okra',
+    cropVariety: 'Airavat F1 Lady Finger',
+    soilType: 'Sandy Loam',
     growthStage: 'Maturation',
     sensorNodeId: 'NODE-PREC-04',
     irrigationStatus: 'Scheduled',
@@ -372,6 +400,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_groundnut',
     cropType: 'Groundnut',
+    cropVariety: 'TMV-2 Drought Resistant',
+    soilType: 'Red Sandy Soil',
     growthStage: 'Vegetative',
     sensorNodeId: 'NODE-PREC-05',
     irrigationStatus: 'Idle',
@@ -383,7 +413,7 @@ export const SEEDED_PLOTS: PlotBed[] = [
     isWatering: false
   },
 
-  // Farm 4: Organic Crop Research Farm
+  // Farm 4: Organic Crop Research Farm (Total: 15.0 acres)
   {
     id: 'plot_org_01',
     farmId: 'farm_organic_research',
@@ -393,6 +423,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_spices',
     cropType: 'Spices',
+    cropVariety: 'Malabar Bold Cardamom & Pepper',
+    soilType: 'Humus Rich Forest Loam',
     growthStage: 'Vegetative',
     sensorNodeId: 'NODE-ORG-01',
     irrigationStatus: 'Active Drip',
@@ -412,6 +444,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_pulses',
     cropType: 'Pulses',
+    cropVariety: 'Pusa-992 Mung Bean',
+    soilType: 'Alluvial Silt',
     growthStage: 'Flowering',
     sensorNodeId: 'NODE-ORG-02',
     irrigationStatus: 'Scheduled',
@@ -431,6 +465,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_wheat_org',
     cropType: 'Wheat',
+    cropVariety: 'Sharbati Gold Heritage',
+    soilType: 'Clayey Loam',
     growthStage: 'Germination',
     sensorNodeId: 'NODE-ORG-03',
     irrigationStatus: 'Automated Sprinkler',
@@ -450,6 +486,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_mustard',
     cropType: 'Mustard',
+    cropVariety: 'Pusa Bold Bio-Shield',
+    soilType: 'Loamy Sand',
     growthStage: 'Vegetative',
     sensorNodeId: 'NODE-ORG-04',
     irrigationStatus: 'Idle',
@@ -469,6 +507,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_turmeric',
     cropType: 'Turmeric',
+    cropVariety: 'Salem Gold Curcumin Plus',
+    soilType: 'Friable Sandy Clay',
     growthStage: 'Maturation',
     sensorNodeId: 'NODE-ORG-05',
     irrigationStatus: 'Active Drip',
@@ -480,7 +520,7 @@ export const SEEDED_PLOTS: PlotBed[] = [
     isWatering: true
   },
 
-  // Farm 5: Digital Twin Innovation Farm
+  // Farm 5: Digital Twin Innovation Farm (Total: 40.0 acres)
   {
     id: 'plot_twin_01',
     farmId: 'farm_digital_twin',
@@ -490,6 +530,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_corn_twin',
     cropType: 'Maize',
+    cropVariety: 'DKC-9108 Super Yield',
+    soilType: 'Deep Fertile Loam',
     growthStage: 'Fruiting',
     sensorNodeId: 'NODE-TWIN-01',
     irrigationStatus: 'Active Drip',
@@ -509,6 +551,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_rice_twin',
     cropType: 'Rice',
+    cropVariety: 'BPT-5204 Samba Masuri',
+    soilType: 'Heavy Clay Submerged',
     growthStage: 'Maturation',
     sensorNodeId: 'NODE-TWIN-02',
     irrigationStatus: 'Automated Sprinkler',
@@ -528,6 +572,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_cotton_twin',
     cropType: 'Cotton',
+    cropVariety: 'DCH-32 Long Staple',
+    soilType: 'Black Soil / Silt Matrix',
     growthStage: 'Flowering',
     sensorNodeId: 'NODE-TWIN-03',
     irrigationStatus: 'Active Drip',
@@ -547,6 +593,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_soy_twin',
     cropType: 'Soybean',
+    cropVariety: 'MACS-1407 Resistant',
+    soilType: 'Medium Black Loam',
     growthStage: 'Vegetative',
     sensorNodeId: 'NODE-TWIN-04',
     irrigationStatus: 'Scheduled',
@@ -566,6 +614,8 @@ export const SEEDED_PLOTS: PlotBed[] = [
     areaUnit: 'acres',
     cropId: 'crop_tomato_twin',
     cropType: 'Tomato',
+    cropVariety: 'Arka Rakshak Triple Resistant',
+    soilType: 'Polyhouse Sterilized Loam',
     growthStage: 'Fruiting',
     sensorNodeId: 'NODE-TWIN-05',
     irrigationStatus: 'Active Drip',

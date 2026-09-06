@@ -1,4 +1,4 @@
-﻿export type ViewMode = 'dashboard' | 'twin' | 'disease' | 'growth' | 'ripeness' | 'yield' | 'sensors' | 'alerts';
+export type ViewMode = 'dashboard' | 'twin' | 'disease' | 'growth' | 'ripeness' | 'yield' | 'sensors' | 'alerts';
 
 export type AreaUnit = 'acres' | 'hectares' | 'sqft' | 'sqm';
 
@@ -59,6 +59,8 @@ export interface PlotBed {
   areaSqm?: number;
   cropId: string | null;
   cropType?: string;
+  cropVariety?: string;
+  soilType?: string;
   growthStage?: 'Germination' | 'Vegetative' | 'Flowering' | 'Fruiting' | 'Maturation' | 'Harvesting';
   sensorNodeId: string;
   sensorId?: string;

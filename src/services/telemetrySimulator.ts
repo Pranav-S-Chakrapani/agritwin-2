@@ -16,6 +16,9 @@ class TelemetrySimulatorService {
   private onGeneratedFn: ((observations: TelemetryObservation[], updatedSensors?: IoTSensor[]) => void) | null = null;
   private lastCycleTime: number | null = null;
 
+  // Momentum cache to ensure smooth physical drift rather than erratic noise jumps
+  private sensorMomentum: Map<string, number> = new Map();
+
   public getSessionId(): string {
     return this.simulationSessionId;
   }
@@ -134,13 +137,23 @@ class TelemetrySimulatorService {
     const nowIso = new Date().toISOString();
     this.lastCycleTime = Date.now();
 
-    // 2. Process each sensor and generate new realistic value based on sensor type
+    // Diurnal atmospheric baseline calculation
+    const nowDate = new Date();
+    const hourFloat = nowDate.getHours() + nowDate.getMinutes() / 60;
+    const diurnalFactor = Math.sin(((hourFloat - 8) / 24) * 2 * Math.PI); // Peak at 14:00, lowest at 02:00
+    const targetDiurnalTemp = 28.0 + 8.0 * diurnalFactor; // 20.0°C to 36.0°C
+    const targetDiurnalHum = 62.0 - 22.0 * diurnalFactor; // 40.0% to 84.0%
+
+    // 2. Process each sensor with continuous inertia physics
     for (const sensor of sensorsToProcess) {
       const typeLower = (sensor.type || sensor.nodeName || '').toLowerCase();
       const oldValue = sensor.currentReading || '0';
-      // Robust extraction of positive numeric reading (preventing delta sign bleed)
       const numMatch = oldValue.match(/[0-9]+\.?[0-9]*/);
       let currVal = numMatch ? parseFloat(numMatch[0]) : 50;
+
+      // Retrieve or initialize inertia momentum
+      const prevMomentum = this.sensorMomentum.get(sensor.id) || 0;
+      let newMomentum = prevMomentum * 0.7 + (Math.random() * 2 - 1) * 0.3; // 70% momentum retention
 
       let newValueNum = currVal;
       let newValueStr = '';
@@ -148,80 +161,85 @@ class TelemetrySimulatorService {
       let unit = '%';
       let displayName = 'Sensor Reading';
 
-      // ── TYPE-BASED SENSOR VALUE GENERATION ────────────────────────────────────
-      // soil_moisture: current ± random(-3, +3), bounded [15, 95]%
-      // temperature: current ± random(-1, +1), bounded [15, 45]°C
-      // humidity: current ± random(-2, +2), bounded [30, 98]%
-      // soil_ph: current ± random(-0.15, +0.15), bounded [5.5, 8.5] pH
-      // nitrogen: current ± random(-5, +5), bounded [20, 250] mg/kg
-      // phosphorus: current ± random(-3, +3), bounded [10, 120] mg/kg
-      // potassium: current ± random(-4, +4), bounded [20, 220] mg/kg
-
+      // ── PHYSIOLOGICALLY BOUNDED & SMOOTH DRIFT GENERATOR ─────────────────────
       if (typeLower.includes('moisture') || typeLower.includes('sm')) {
         paramKey = 'soil_moisture';
         unit = '%';
         displayName = 'Soil Moisture';
-        if (currVal < 10 || currVal > 100) currVal = 55.0;
-        const delta = (Math.random() * 4) - 2;
-        newValueNum = Math.max(15, Math.min(95, currVal + delta));
+        if (currVal < 15 || currVal > 70) currVal = 48.0;
+        
+        // Smooth random walk: step size ±0.35%
+        const delta = newMomentum * 0.35;
+        // Mild mean-reverting pull toward 48%
+        const pull = (48.0 - currVal) * 0.02;
+        newValueNum = Math.max(15.0, Math.min(70.0, currVal + delta + pull));
         newValueStr = `${newValueNum.toFixed(1)}%`;
       } else if (typeLower.includes('temp') || typeLower.includes('at')) {
         paramKey = 'air_temperature';
         unit = '°C';
         displayName = 'Air Temperature';
-        if (currVal < 5 || currVal > 55) currVal = 26.5;
-        const delta = (Math.random() * 1.6) - 0.8;
-        newValueNum = Math.max(15, Math.min(42, currVal + delta));
+        if (currVal < 18 || currVal > 38) currVal = targetDiurnalTemp;
+
+        // Step size ±0.25°C, smoothly tracking diurnal solar curve
+        const delta = newMomentum * 0.25;
+        const pull = (targetDiurnalTemp - currVal) * 0.05;
+        newValueNum = Math.max(18.0, Math.min(38.0, currVal + delta + pull));
         newValueStr = `${newValueNum.toFixed(1)}°C`;
       } else if (typeLower.includes('hum')) {
         paramKey = 'humidity';
         unit = '%';
         displayName = 'Atmospheric Humidity';
-        if (currVal < 10 || currVal > 100) currVal = 65.0;
-        const delta = (Math.random() * 3) - 1.5;
-        newValueNum = Math.max(30, Math.min(95, currVal + delta));
+        if (currVal < 30 || currVal > 90) currVal = targetDiurnalHum;
+
+        const delta = newMomentum * 0.45;
+        const pull = (targetDiurnalHum - currVal) * 0.05;
+        newValueNum = Math.max(30.0, Math.min(90.0, currVal + delta + pull));
         newValueStr = `${newValueNum.toFixed(1)}%`;
       } else if (typeLower.includes('ph')) {
         paramKey = 'soil_ph';
         unit = 'pH';
         displayName = 'Soil pH';
-        if (currVal < 4.0 || currVal > 10.0) currVal = 6.8;
-        const delta = (Math.random() * 0.2) - 0.1;
-        newValueNum = Math.max(5.5, Math.min(8.2, currVal + delta));
+        if (currVal < 5.5 || currVal > 7.8) currVal = 6.6;
+
+        // pH changes very slowly in soil: step ±0.02
+        const delta = newMomentum * 0.02;
+        const pull = (6.6 - currVal) * 0.01;
+        newValueNum = Math.max(5.50, Math.min(7.80, currVal + delta + pull));
         newValueStr = `${newValueNum.toFixed(2)} pH`;
       } else if (typeLower.includes('nitrogen') || typeLower.includes('n_') || typeLower.endsWith('_n')) {
         paramKey = 'nitrogen';
         unit = 'mg/kg';
         displayName = 'Nitrogen';
-        if (currVal < 5 || currVal > 400) currVal = 85;
-        const delta = (Math.random() * 8) - 4;
-        newValueNum = Math.max(20, Math.min(250, currVal + delta));
+        if (currVal < 30 || currVal > 220) currVal = 85;
+        const delta = newMomentum * 1.5;
+        newValueNum = Math.max(30, Math.min(220, currVal + delta));
         newValueStr = `${Math.round(newValueNum)} mg/kg`;
       } else if (typeLower.includes('phosphor') || typeLower.includes('p_') || typeLower.endsWith('_p')) {
         paramKey = 'phosphorus';
         unit = 'mg/kg';
         displayName = 'Phosphorus';
-        if (currVal < 5 || currVal > 200) currVal = 42;
-        const delta = (Math.random() * 4) - 2;
-        newValueNum = Math.max(10, Math.min(120, currVal + delta));
+        if (currVal < 15 || currVal > 110) currVal = 42;
+        const delta = newMomentum * 0.8;
+        newValueNum = Math.max(15, Math.min(110, currVal + delta));
         newValueStr = `${Math.round(newValueNum)} mg/kg`;
       } else if (typeLower.includes('potass') || typeLower.includes('k_') || typeLower.endsWith('_k')) {
         paramKey = 'potassium';
         unit = 'mg/kg';
         displayName = 'Potassium';
-        if (currVal < 5 || currVal > 350) currVal = 110;
-        const delta = (Math.random() * 6) - 3;
-        newValueNum = Math.max(20, Math.min(220, currVal + delta));
+        if (currVal < 30 || currVal > 200) currVal = 110;
+        const delta = newMomentum * 1.2;
+        newValueNum = Math.max(30, Math.min(200, currVal + delta));
         newValueStr = `${Math.round(newValueNum)} mg/kg`;
       } else {
-        // Fallback
         paramKey = 'sensor_reading';
         unit = '';
         displayName = sensor.nodeName || 'Sensor';
-        const delta = (Math.random() * 2) - 1;
+        const delta = newMomentum * 0.5;
         newValueNum = Math.max(0, Number((currVal + delta).toFixed(1)));
         newValueStr = `${newValueNum}`;
       }
+
+      this.sensorMomentum.set(sensor.id, newMomentum);
 
       // Track updated sensor locally
       updatedSensors.push({
@@ -230,10 +248,11 @@ class TelemetrySimulatorService {
         lastPing: nowIso
       });
 
-      // 4. Insert matching telemetry record
+      // Map to proper relational IDs
       const plot = plots.find(p => p.id === sensor.plotId || p.code === sensor.assignedPlotCode);
       const farmId = sensor.farmId || plot?.farmId || 'farm_iiit_dharwad';
       const plotId = sensor.plotId || plot?.id || 'plot_dharwad_01';
+      const mqttTopic = `farm/${farmId}/plot/${plotId}/sensor/${sensor.id}/reading`;
 
       generatedObs.push({
         id: `obs_${Date.now()}_${sensor.id}_${Math.random().toString(36).substring(2, 6)}`,
@@ -249,7 +268,12 @@ class TelemetrySimulatorService {
         receivedTimestamp: nowIso,
         qualityStatus: 'VALID',
         dataSource: 'SIMULATED',
-        notes: `Simulated update for ${sensor.id}`
+        notes: `Simulated update via ${mqttTopic}`,
+        metadata: {
+          mqttTopic,
+          source: 'SIMULATED',
+          ingestPath: mqttTopic
+        }
       });
     }
 
