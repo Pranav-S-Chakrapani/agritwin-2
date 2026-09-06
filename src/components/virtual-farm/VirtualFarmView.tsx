@@ -25,6 +25,7 @@ import { PrototypeModeBanner } from '../common/PrototypeModeBanner';
 import PlantCanopySvg from '../common/PlantCanopySvg';
 import { PlotBed, Crop, TelemetryObservation } from '../../types';
 import { PlotService, CropService } from '../../services/canonicalServices';
+import { formatTemperature, formatMoisture, formatPh } from '../../lib/formatters';
 
 export const VirtualFarmView: React.FC = () => {
   const { 
@@ -363,14 +364,14 @@ export const VirtualFarmView: React.FC = () => {
                           <>
                             <span className="flex items-center space-x-1 text-sky-300">
                               <Droplet className="w-3.5 h-3.5 text-sky-400" />
-                              <span>{obs.moisture !== null ? `${obs.moisture}%` : '--'}</span>
+                              <span>{formatMoisture(obs.moisture)}</span>
                             </span>
                             <span className="flex items-center space-x-1 text-amber-300">
                               <Thermometer className="w-3.5 h-3.5 text-amber-400" />
-                              <span>{obs.temp !== null ? `${obs.temp}°C` : '--'}</span>
+                              <span>{formatTemperature(obs.temp)}</span>
                             </span>
                             <span className="flex items-center space-x-1 text-purple-300">
-                              <span>pH {obs.ph !== null ? obs.ph : '--'}</span>
+                              <span>pH {formatPh(obs.ph)}</span>
                             </span>
                           </>
                         ) : (

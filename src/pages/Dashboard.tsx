@@ -39,6 +39,7 @@ import {
 import { SupabaseMonitorSection } from '../components/dashboard/SupabaseMonitorSection';
 import { useAgriStore } from '../context/AgriStore';
 import { PlotService, SensorService, CropService } from '../services/canonicalServices';
+import { formatTemperature, formatMoisture, formatHumidity, formatPh } from '../lib/formatters';
 
 const COLORS = ['#10B981', '#0284C7', '#8B5CF6', '#D97706', '#EC4899', '#14B8A6'];
 
@@ -342,7 +343,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
                       <span className="flex items-center gap-1"><Droplets className="w-3 h-3 text-blue-500" /> Soil Moisture</span>
                     </div>
-                    <div className="text-base font-black text-slate-900 mt-1">{plot.soilMoisture.toFixed(1)}%</div>
+                    <div className="text-base font-black text-slate-900 mt-1">{formatMoisture(plot.soilMoisture)}</div>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${moistureBadge.color}`}>
                       {moistureBadge.label}
                     </span>
@@ -352,7 +353,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
                       <span className="flex items-center gap-1"><Thermometer className="w-3 h-3 text-rose-500" /> Temperature</span>
                     </div>
-                    <div className="text-base font-black text-slate-900 mt-1">{plot.airTemp.toFixed(1)}°C</div>
+                    <div className="text-base font-black text-slate-900 mt-1">{formatTemperature(plot.airTemp)}</div>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${tempBadge.color}`}>
                       {tempBadge.label}
                     </span>
@@ -362,7 +363,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
                       <span className="flex items-center gap-1"><Wind className="w-3 h-3 text-teal-500" /> Humidity</span>
                     </div>
-                    <div className="text-base font-black text-slate-900 mt-1">{humidity.toFixed(1)}%</div>
+                    <div className="text-base font-black text-slate-900 mt-1">{formatHumidity(humidity)}</div>
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border text-teal-700 bg-teal-50 border-teal-200 inline-block mt-0.5">
                       Ambient
                     </span>
@@ -372,7 +373,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
                       <span className="flex items-center gap-1"><Activity className="w-3 h-3 text-purple-500" /> Soil pH</span>
                     </div>
-                    <div className="text-base font-black text-slate-900 mt-1">{plot.soilPh.toFixed(2)}</div>
+                    <div className="text-base font-black text-slate-900 mt-1">{formatPh(plot.soilPh)}</div>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${phBadge.color}`}>
                       {phBadge.label}
                     </span>

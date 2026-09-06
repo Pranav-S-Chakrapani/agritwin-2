@@ -20,33 +20,49 @@ import {
   Radio,
   X,
   Save,
-  Check
+  Check,
+  Wheat,
+  Leaf,
+  Flower2,
+  Flame,
+  Sun
 } from 'lucide-react';
 import { useAgriStore } from '../context/AgriStore';
 import { Farmland, PlotBed } from '../types';
 import { PlotService, SensorService, CropService } from '../services/canonicalServices';
+import { formatTemperature, formatMoisture, formatPh } from '../lib/formatters';
 
-const CROP_META: Record<string, { emoji: string; color: string; bg: string; border: string }> = {
-  'Wheat':       { emoji: '🌾', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
-  'Rice':        { emoji: '🌾', color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
-  'Maize':       { emoji: '🌽', color: 'text-yellow-700',  bg: 'bg-yellow-50',  border: 'border-yellow-200' },
-  'Sugarcane':   { emoji: '🎋', color: 'text-lime-700',    bg: 'bg-lime-50',    border: 'border-lime-200' },
-  'Cotton':      { emoji: '☁️', color: 'text-slate-700',   bg: 'bg-slate-50',   border: 'border-slate-200' },
-  'Lettuce':     { emoji: '🥬', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  'Bell Pepper': { emoji: '🫑', color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200' },
-  'Tomato':      { emoji: '🍅', color: 'text-rose-700',    bg: 'bg-rose-50',    border: 'border-rose-200' },
-  'Strawberry':  { emoji: '🍓', color: 'text-pink-700',    bg: 'bg-pink-50',    border: 'border-pink-200' },
-  'Cucumber':    { emoji: '🥒', color: 'text-teal-700',    bg: 'bg-teal-50',    border: 'border-teal-200' },
-  'Soybean':     { emoji: '🌱', color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
-  'Chilli':      { emoji: '🌶️', color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200' },
-  'Brinjal':     { emoji: '🍆', color: 'text-purple-700',  bg: 'bg-purple-50',  border: 'border-purple-200' },
-  'Okra':        { emoji: '🌿', color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
-  'Groundnut':   { emoji: '🥜', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
+interface CropMetaConfig {
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+const CROP_META: Record<string, CropMetaConfig> = {
+  'Wheat':       { icon: Wheat,   color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
+  'Rice':        { icon: Sprout,  color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  'Maize':       { icon: Wheat,   color: 'text-yellow-700',  bg: 'bg-yellow-50',  border: 'border-yellow-200' },
+  'Sugarcane':   { icon: Leaf,    color: 'text-lime-700',    bg: 'bg-lime-50',    border: 'border-lime-200' },
+  'Cotton':      { icon: Flower2, color: 'text-slate-700',   bg: 'bg-slate-50',   border: 'border-slate-200' },
+  'Lettuce':     { icon: Leaf,    color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  'Bell Pepper': { icon: Flame,   color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200' },
+  'Tomato':      { icon: Sun,     color: 'text-rose-700',    bg: 'bg-rose-50',    border: 'border-rose-200' },
+  'Strawberry':  { icon: Flame,   color: 'text-pink-700',    bg: 'bg-pink-50',    border: 'border-pink-200' },
+  'Cucumber':    { icon: Leaf,    color: 'text-teal-700',    bg: 'bg-teal-50',    border: 'border-teal-200' },
+  'Soybean':     { icon: Sprout,  color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
+  'Chilli':      { icon: Flame,   color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200' },
+  'Brinjal':     { icon: Sprout,  color: 'text-purple-700',  bg: 'bg-purple-50',  border: 'border-purple-200' },
+  'Okra':        { icon: Leaf,    color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  'Groundnut':   { icon: Sprout,  color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
+  'Mustard':     { icon: Flower2, color: 'text-yellow-700',  bg: 'bg-yellow-50',  border: 'border-yellow-200' },
+  'Pulses':      { icon: Sprout,  color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
+  'Turmeric':    { icon: Sun,     color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
 };
 
-function getCropMeta(crop?: string) {
-  if (!crop) return { emoji: '🌱', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
-  return CROP_META[crop] || { emoji: '🌱', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+function getCropMeta(crop?: string): CropMetaConfig {
+  if (!crop) return { icon: Sprout, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+  return CROP_META[crop] || { icon: Sprout, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
 }
 export const MyFarms: React.FC = () => {
   const {
@@ -347,10 +363,15 @@ export const MyFarms: React.FC = () => {
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1.5 ${cropMeta.bg} ${cropMeta.color} ${cropMeta.border}`}>
-                                <span>{cropMeta.emoji}</span>
-                                <span>{plot.cropType || 'Crop'}</span>
-                              </span>
+                              {(() => {
+                                const CropIcon = cropMeta.icon;
+                                return (
+                                  <span className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1.5 ${cropMeta.bg} ${cropMeta.color} ${cropMeta.border}`}>
+                                    <CropIcon className="w-3.5 h-3.5 shrink-0" />
+                                    <span>{plot.cropType || 'Crop'}</span>
+                                  </span>
+                                );
+                              })()}
                               <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
                                 {resolvedStage}
                               </span>
@@ -363,15 +384,15 @@ export const MyFarms: React.FC = () => {
                             <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
                               <div>
                                 <span className="text-[10px] text-slate-400 font-bold block">Moisture</span>
-                                <strong className="text-blue-700 font-black">{plot.soilMoisture.toFixed(1)}%</strong>
+                                <strong className="text-blue-700 font-black">{formatMoisture(plot.soilMoisture)}</strong>
                               </div>
                               <div>
                                 <span className="text-[10px] text-slate-400 font-bold block">Temp</span>
-                                <strong className="text-rose-700 font-black">{plot.airTemp.toFixed(1)}°C</strong>
+                                <strong className="text-rose-700 font-black">{formatTemperature(plot.airTemp)}</strong>
                               </div>
                               <div>
                                 <span className="text-[10px] text-slate-400 font-bold block">Soil pH</span>
-                                <strong className="text-purple-700 font-black">{plot.soilPh.toFixed(2)}</strong>
+                                <strong className="text-purple-700 font-black">{formatPh(plot.soilPh)}</strong>
                               </div>
                             </div>
 

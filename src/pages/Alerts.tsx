@@ -202,6 +202,8 @@ export const Alerts: React.FC = () => {
             const farm = farmlands.find((f) => f.id === alert.farmId);
             const plot = plots.find((p) => p.id === alert.plotId || p.code === alert.plotId);
             const isResolved = alert.status === 'resolved';
+            const cleanTitle = (alert.title || '').replace(/\(undefined\)/gi, '').replace(/\bundefined\b/gi, 'Sensor Node').trim();
+            const cleanMessage = (alert.message || '').replace(/\(undefined\)/gi, '').replace(/\bundefined\b/gi, 'Sensor Node').trim();
 
             return (
               <div
@@ -222,9 +224,9 @@ export const Alerts: React.FC = () => {
                           Resolved
                         </span>
                       )}
-                      <h3 className="font-extrabold text-base text-slate-900">{alert.title}</h3>
+                      <h3 className="font-extrabold text-base text-slate-900">{cleanTitle}</h3>
                     </div>
-                    <p className="text-xs text-slate-600 leading-relaxed pt-0.5">{alert.message}</p>
+                    <p className="text-xs text-slate-600 leading-relaxed pt-0.5">{cleanMessage}</p>
                   </div>
 
                   {/* Actions */}
