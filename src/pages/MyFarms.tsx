@@ -24,28 +24,29 @@ import {
 } from 'lucide-react';
 import { useAgriStore } from '../context/AgriStore';
 import { Farmland, PlotBed } from '../types';
+import { PlotService, SensorService, CropService } from '../services/canonicalServices';
 
 const CROP_META: Record<string, { emoji: string; color: string; bg: string; border: string }> = {
-  'Wheat':       { emoji: '??', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
-  'Rice':        { emoji: '??', color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
-  'Maize':       { emoji: '??', color: 'text-yellow-700',  bg: 'bg-yellow-50',  border: 'border-yellow-200' },
-  'Sugarcane':   { emoji: '??', color: 'text-lime-700',    bg: 'bg-lime-50',    border: 'border-lime-200' },
-  'Cotton':      { emoji: '??', color: 'text-slate-700',   bg: 'bg-slate-50',   border: 'border-slate-200' },
-  'Lettuce':     { emoji: '??', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  'Bell Pepper': { emoji: '??', color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200' },
-  'Tomato':      { emoji: '??', color: 'text-rose-700',    bg: 'bg-rose-50',    border: 'border-rose-200' },
-  'Strawberry':  { emoji: '??', color: 'text-pink-700',    bg: 'bg-pink-50',    border: 'border-pink-200' },
-  'Cucumber':    { emoji: '??', color: 'text-teal-700',    bg: 'bg-teal-50',    border: 'border-teal-200' },
-  'Soybean':     { emoji: '??', color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
-  'Chilli':      { emoji: '???', color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200' },
-  'Brinjal':     { emoji: '??', color: 'text-purple-700',  bg: 'bg-purple-50',  border: 'border-purple-200' },
-  'Okra':        { emoji: '??', color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
-  'Groundnut':   { emoji: '??', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
+  'Wheat':       { emoji: '🌾', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
+  'Rice':        { emoji: '🌾', color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
+  'Maize':       { emoji: '🌽', color: 'text-yellow-700',  bg: 'bg-yellow-50',  border: 'border-yellow-200' },
+  'Sugarcane':   { emoji: '🎋', color: 'text-lime-700',    bg: 'bg-lime-50',    border: 'border-lime-200' },
+  'Cotton':      { emoji: '☁️', color: 'text-slate-700',   bg: 'bg-slate-50',   border: 'border-slate-200' },
+  'Lettuce':     { emoji: '🥬', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  'Bell Pepper': { emoji: '🫑', color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200' },
+  'Tomato':      { emoji: '🍅', color: 'text-rose-700',    bg: 'bg-rose-50',    border: 'border-rose-200' },
+  'Strawberry':  { emoji: '🍓', color: 'text-pink-700',    bg: 'bg-pink-50',    border: 'border-pink-200' },
+  'Cucumber':    { emoji: '🥒', color: 'text-teal-700',    bg: 'bg-teal-50',    border: 'border-teal-200' },
+  'Soybean':     { emoji: '🌱', color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
+  'Chilli':      { emoji: '🌶️', color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200' },
+  'Brinjal':     { emoji: '🍆', color: 'text-purple-700',  bg: 'bg-purple-50',  border: 'border-purple-200' },
+  'Okra':        { emoji: '🌿', color: 'text-green-700',   bg: 'bg-green-50',   border: 'border-green-200' },
+  'Groundnut':   { emoji: '🥜', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200' },
 };
 
 function getCropMeta(crop?: string) {
-  if (!crop) return { emoji: '??', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
-  return CROP_META[crop] || { emoji: '??', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+  if (!crop) return { emoji: '🌱', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+  return CROP_META[crop] || { emoji: '🌱', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
 }
 export const MyFarms: React.FC = () => {
   const {
@@ -201,9 +202,8 @@ export const MyFarms: React.FC = () => {
       <div className="space-y-4">
         {farmlands.map((farm) => {
           const isExpanded = expandedFarm === farm.id;
-          const farmPlots = plots.filter((p) => p.farmId === farm.id);
-          const farmSensors = sensors.filter((s) => s.farmId === farm.id);
-          const onlineSensors = farmSensors.filter((s) => s.status === 'Online').length;
+          const farmPlots = PlotService.getPlotsForFarm(plots, farm.id);
+          const sensorCounts = SensorService.getSensorCountsForFarm(sensors, farm.id);
           const isSelected = activeFarmland?.id === farm.id;
 
           return (
@@ -241,7 +241,7 @@ export const MyFarms: React.FC = () => {
                       <span>&bull;</span>
                       <span>Plots: <strong className="text-emerald-700">{farmPlots.length} Plots</strong></span>
                       <span>&bull;</span>
-                      <span>Sensors: <strong className="text-indigo-700">{farmSensors.length} Units ({onlineSensors} Online)</strong></span>
+                      <span>Sensors: <strong className="text-indigo-700">{sensorCounts.total} Units ({sensorCounts.active} Online)</strong></span>
                     </div>
                   </div>
                 </div>
@@ -255,7 +255,7 @@ export const MyFarms: React.FC = () => {
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    {isSelected ? '? Selected' : 'Set as Active'}
+                    {isSelected ? '✓ Selected' : 'Set as Active'}
                   </button>
 
                   <button
@@ -311,7 +311,9 @@ export const MyFarms: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {farmPlots.map((plot) => {
                         const cropMeta = getCropMeta(plot.cropType);
-                        const plotSensors = sensors.filter((s) => s.plotId === plot.id);
+                        const plotSensors = SensorService.getSensorsForPlot(sensors, plot.id);
+                        const assignedCrop = crops.find((c) => c.id === plot.cropId || c.name.toLowerCase() === (plot.cropType || '').toLowerCase());
+                        const resolvedStage = CropService.getCurrentStageForPlot(plot, assignedCrop);
 
                         return (
                           <div key={plot.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-3">
@@ -350,7 +352,7 @@ export const MyFarms: React.FC = () => {
                                 <span>{plot.cropType || 'Crop'}</span>
                               </span>
                               <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
-                                {plot.growthStage || 'Vegetative'}
+                                {resolvedStage}
                               </span>
                               <span className="text-[11px] text-slate-500 ml-auto font-medium">
                                 {plot.area} {plot.areaUnit || 'acres'}
@@ -365,7 +367,7 @@ export const MyFarms: React.FC = () => {
                               </div>
                               <div>
                                 <span className="text-[10px] text-slate-400 font-bold block">Temp</span>
-                                <strong className="text-rose-700 font-black">{plot.airTemp.toFixed(1)}�C</strong>
+                                <strong className="text-rose-700 font-black">{plot.airTemp.toFixed(1)}°C</strong>
                               </div>
                               <div>
                                 <span className="text-[10px] text-slate-400 font-bold block">Soil pH</span>
@@ -724,7 +726,7 @@ export const MyFarms: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Temp �C</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Temp °C</label>
                   <input
                     type="number"
                     value={editingPlot.airTemp}

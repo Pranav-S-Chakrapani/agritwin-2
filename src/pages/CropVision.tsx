@@ -18,6 +18,7 @@ import {
 import CropGrowthTracker from '../components/dashboard/CropGrowthTracker';
 import PlantCanopySvg from '../components/common/PlantCanopySvg';
 import { useAgriStore } from '../context/AgriStore';
+import { CropService } from '../services/canonicalServices';
 
 export const CropVision = () => {
   const { activeSections, crops } = useAgriStore();
@@ -43,7 +44,8 @@ export const CropVision = () => {
   const yieldEstimate = Number((3.2 + (days / maxDays) * 2.8).toFixed(1));
   const diseaseRisk = activePlot?.soilMoisture > 85 ? 18 : 2;
 
-  const growthStageLabel = pct < 20 ? 'Germination & Early Leaf' : pct < 50 ? 'Active Vegetative Canopy' : pct < 80 ? 'Flowering & Fruit Set' : 'Harvest Ready Maturation';
+  // Single Source of Truth Phenological Stage from Canonical CropService
+  const growthStageLabel = CropService.getCurrentStageForPlot(activePlot, assignedCrop);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -216,7 +218,7 @@ export const CropVision = () => {
                   }}
                 />
                 <PlantCanopySvg
-                  stage={pct > 75 ? 'flowering' : 'vegetative'}
+                  stage={CropService.getCanopyStage(growthStageLabel)}
                   cropType={assignedCrop?.name || 'Crop'}
                   size={280}
                 />

@@ -24,6 +24,7 @@ import { DataSourceBadge } from '../common/DataSourceBadge';
 import { PrototypeModeBanner } from '../common/PrototypeModeBanner';
 import PlantCanopySvg from '../common/PlantCanopySvg';
 import { PlotBed, Crop, TelemetryObservation } from '../../types';
+import { PlotService, CropService } from '../../services/canonicalServices';
 
 export const VirtualFarmView: React.FC = () => {
   const { 
@@ -309,7 +310,11 @@ export const VirtualFarmView: React.FC = () => {
                   <div className="absolute inset-0 z-0 overflow-hidden">
                     {crop ? (
                       <div className="w-full h-full transform group-hover:scale-105 transition-transform duration-700">
-                        <PlantCanopySvg stage="vegetative" cropType={crop.name} size={400} />
+                        <PlantCanopySvg 
+                          stage={CropService.getCanopyStage(CropService.getCurrentStageForPlot(sec, crop))} 
+                          cropType={crop.name} 
+                          size={400} 
+                        />
                       </div>
                     ) : (
                       <div className="w-full h-full bg-[#2a1d15] bg-[radial-gradient(#3a291e_1px,transparent_1px)] [background-size:12px_12px] flex items-center justify-center p-6 text-center">

@@ -171,7 +171,7 @@ export const SignUp: React.FC = () => {
           })}
         </div>
         <p className="text-center text-xs text-slate-400 mb-4">
-          Step {step} of 7 � {STEP_LABELS[step - 1]}
+          Step {step} of 7 &bull; {STEP_LABELS[step - 1]}
         </p>
 
         <div className="bg-white rounded-3xl shadow-2xl p-7">
@@ -185,7 +185,7 @@ export const SignUp: React.FC = () => {
           {/* STEP 1: Email & Password */}
           {step === 1 && (
             <form onSubmit={handleStep1} className="space-y-4">
-              <h2 className="text-xl font-black text-slate-900 mb-4">?? Email &amp; Password</h2>
+              <h2 className="text-xl font-black text-slate-900 mb-4">🔐 Email &amp; Password</h2>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
                 <div className="relative">
@@ -225,10 +225,10 @@ export const SignUp: React.FC = () => {
           {/* STEP 2: Email OTP */}
           {step === 2 && (
             <form onSubmit={handleStep2} className="space-y-4">
-              <h2 className="text-xl font-black text-slate-900 mb-1">?? Email Verification</h2>
+              <h2 className="text-xl font-black text-slate-900 mb-1">📧 Email Verification</h2>
               <p className="text-slate-500 text-sm mb-4">We sent a 6-digit code to <strong>{email}</strong>.</p>
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 font-medium">
-                ?? Demo mode &mdash; your OTP is: <strong className="font-black text-lg tracking-widest">{sentEmailOtp}</strong>
+                ⚡ Demo mode &mdash; your OTP is: <strong className="font-black text-lg tracking-widest">{sentEmailOtp}</strong>
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Enter 6-Digit Code</label>
@@ -245,7 +245,7 @@ export const SignUp: React.FC = () => {
           {/* STEP 3: Profile */}
           {step === 3 && (
             <form onSubmit={handleStep3} className="space-y-4">
-              <h2 className="text-xl font-black text-slate-900 mb-4">?? Your Profile</h2>
+              <h2 className="text-xl font-black text-slate-900 mb-4">👤 Your Profile</h2>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
                 <div className="relative">
@@ -287,10 +287,10 @@ export const SignUp: React.FC = () => {
           {/* STEP 4: Phone OTP */}
           {step === 4 && (
             <form onSubmit={handleStep4} className="space-y-4">
-              <h2 className="text-xl font-black text-slate-900 mb-1">?? Phone Verification</h2>
+              <h2 className="text-xl font-black text-slate-900 mb-1">📱 Phone Verification</h2>
               <p className="text-slate-500 text-sm mb-4">We sent a 6-digit code to <strong>{phone}</strong>.</p>
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 font-medium">
-                ?? Demo mode &mdash; your OTP is: <strong className="font-black text-lg tracking-widest">{phoneOtp}</strong>
+                ⚡ Demo mode &mdash; your OTP is: <strong className="font-black text-lg tracking-widest">{phoneOtp}</strong>
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Enter 6-Digit Code</label>
@@ -307,7 +307,7 @@ export const SignUp: React.FC = () => {
           {/* STEP 5: Farm Assignment */}
           {step === 5 && (
             <form onSubmit={handleStep5} className="space-y-4">
-              <h2 className="text-xl font-black text-slate-900 mb-1">?? Farm Assignment</h2>
+              <h2 className="text-xl font-black text-slate-900 mb-1">🚜 Farm Assignment</h2>
               <p className="text-slate-500 text-sm mb-4">Select the farms you will be managing.</p>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {farmlands.length === 0 ? (
@@ -324,7 +324,7 @@ export const SignUp: React.FC = () => {
                           <Building2 className="w-4 h-4 text-emerald-600" />
                           {farm.name}
                         </div>
-                        <div className="text-xs text-slate-500">{farm.location} � {farm.totalArea} {farm.unit}</div>
+                        <div className="text-xs text-slate-500">{farm.location} &bull; {farm.totalArea} {farm.unit}</div>
                       </div>
                     </label>
                   ))
@@ -339,7 +339,7 @@ export const SignUp: React.FC = () => {
           {/* STEP 6: Terms */}
           {step === 6 && (
             <form onSubmit={handleStep6} className="space-y-4">
-              <h2 className="text-xl font-black text-slate-900 mb-1">?? Terms &amp; Conditions</h2>
+              <h2 className="text-xl font-black text-slate-900 mb-1">📜 Terms &amp; Conditions</h2>
               <p className="text-slate-500 text-sm mb-4">Please review and accept our terms to continue.</p>
               <div className="h-40 overflow-y-auto p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
                 <strong>AgriTwin Terms of Service</strong><br /><br />
@@ -369,9 +369,9 @@ export const SignUp: React.FC = () => {
           {step === 7 && (
             <div className="text-center space-y-4">
               <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 font-black text-3xl">
-                ?
+                <Check className="w-10 h-10 text-emerald-600" />
               </div>
-              <h2 className="text-2xl font-black text-slate-900">You're All Set! ??</h2>
+              <h2 className="text-2xl font-black text-slate-900">You're All Set! 🎉</h2>
               <p className="text-slate-500 text-sm">Your account is verified and ready. Click below to activate and access your farm dashboard.</p>
               <div className="bg-slate-50 rounded-xl p-4 text-left space-y-2">
                 <div className="flex justify-between text-sm">

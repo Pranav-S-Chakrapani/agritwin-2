@@ -38,6 +38,7 @@ import {
 
 import { SupabaseMonitorSection } from '../components/dashboard/SupabaseMonitorSection';
 import { useAgriStore } from '../context/AgriStore';
+import { PlotService, SensorService, CropService } from '../services/canonicalServices';
 
 const COLORS = ['#10B981', '#0284C7', '#8B5CF6', '#D97706', '#EC4899', '#14B8A6'];
 
@@ -104,17 +105,29 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const activeSensorsCount = useMemo(() => sensors.filter(s => s.status === 'Online').length, [sensors]);
-  const offlineSensorsCount = useMemo(() => sensors.filter(s => s.status === 'Offline').length, [sensors]);
+  const activeFarmPlots = useMemo(() => {
+    return PlotService.getPlotsForFarm(plots, activeFarmland?.id);
+  }, [plots, activeFarmland]);
+
+  const activeFarmSensorCounts = useMemo(() => {
+    return SensorService.getSensorCountsForFarm(sensors, activeFarmland?.id);
+  }, [sensors, activeFarmland]);
+
+  const globalSensorCounts = useMemo(() => {
+    return SensorService.getGlobalSensorCounts(sensors);
+  }, [sensors]);
+
+  const activeSensorsCount = activeFarmSensorCounts.active;
+  const offlineSensorsCount = activeFarmSensorCounts.offline;
   const activeAlertsCount = useMemo(() => alerts.filter(a => a.status === 'active').length, [alerts]);
   const filteredFarms = useMemo(() => {
     if (!searchTerm.trim()) return farmlands;
     const term = searchTerm.toLowerCase();
     return farmlands.filter(farm => {
       const matchesFarm = farm.name.toLowerCase().includes(term) || farm.location.toLowerCase().includes(term);
-      const farmPlots = plots.filter(p => p.farmId === farm.id);
+      const farmPlots = PlotService.getPlotsForFarm(plots, farm.id);
       const matchesPlot = farmPlots.some(p => p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term) || (p.cropType || '').toLowerCase().includes(term));
-      const farmSensors = sensors.filter(s => s.farmId === farm.id);
+      const farmSensors = SensorService.getSensorsForFarm(sensors, farm.id);
       const matchesSensor = farmSensors.some(s => s.nodeName.toLowerCase().includes(term) || (s.type || '').toLowerCase().includes(term) || (s.sensorCode || '').toLowerCase().includes(term));
       return matchesFarm || matchesPlot || matchesSensor;
     });
@@ -129,9 +142,8 @@ export const Dashboard: React.FC = () => {
 
   const sensorDistData = useMemo(() => {
     return farmlands.map(f => {
-      const totalS = sensors.filter(s => s.farmId === f.id).length;
-      const onlineS = sensors.filter(s => s.farmId === f.id && s.status === 'Online').length;
-      return { name: f.name.split(' ')[0], total: totalS || 30, online: onlineS || 29 };
+      const counts = SensorService.getSensorCountsForFarm(sensors, f.id);
+      return { name: f.name.split(' ')[0], total: counts.total || 30, online: counts.active || 29 };
     });
   }, [farmlands, sensors]);
 
@@ -216,38 +228,29 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Total Farms</span>
-            <Building2 className="w-4 h-4 text-emerald-600" />
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Active Farm Plots</span>
+            <Sprout className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-black text-slate-900 mt-1">{farmlands.length}</div>
-          <div className="text-[10px] text-emerald-600 font-bold mt-0.5">Active Farms</div>
+          <div className="text-2xl font-black text-slate-900 mt-1">{activeFarmPlots.length}</div>
+          <div className="text-[10px] text-emerald-600 font-bold mt-0.5">{plots.length} System Total</div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Total Plots</span>
-            <Sprout className="w-4 h-4 text-teal-600" />
-          </div>
-          <div className="text-2xl font-black text-slate-900 mt-1">{plots.length}</div>
-          <div className="text-[10px] text-teal-600 font-bold mt-0.5">Under Cultivation</div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Total Sensors</span>
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Active Farm Sensors</span>
             <Cpu className="w-4 h-4 text-indigo-600" />
           </div>
-          <div className="text-2xl font-black text-slate-900 mt-1">{sensors.length}</div>
-          <div className="text-[10px] text-indigo-600 font-bold mt-0.5">Sensor Units</div>
+          <div className="text-2xl font-black text-slate-900 mt-1">{activeFarmSensorCounts.total}</div>
+          <div className="text-[10px] text-indigo-600 font-bold mt-0.5">{globalSensorCounts.total} System Total</div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Active Sensors</span>
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Online Sensors</span>
             <Radio className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-2xl font-black text-emerald-600 mt-1">{activeSensorsCount}</div>
-          <div className="text-[10px] text-emerald-600 font-bold mt-0.5">Broadcasting Live</div>
+          <div className="text-[10px] text-emerald-600 font-bold mt-0.5">Live Broadcasting</div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
@@ -272,6 +275,15 @@ export const Dashboard: React.FC = () => {
           <div className="text-[10px] text-slate-500 font-bold mt-0.5">
             <Link to="/alerts" className="text-amber-600 hover:underline font-bold">View Active &rarr;</Link>
           </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Total Farmlands</span>
+            <Building2 className="w-4 h-4 text-sky-600" />
+          </div>
+          <div className="text-2xl font-black text-slate-900 mt-1">{farmlands.length}</div>
+          <div className="text-[10px] text-sky-600 font-bold mt-0.5">Connected Sites</div>
         </div>
       </div>
       {/* 2. Live Field Health */}
@@ -340,7 +352,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
                       <span className="flex items-center gap-1"><Thermometer className="w-3 h-3 text-rose-500" /> Temperature</span>
                     </div>
-                    <div className="text-base font-black text-slate-900 mt-1">{plot.airTemp.toFixed(1)}�C</div>
+                    <div className="text-base font-black text-slate-900 mt-1">{plot.airTemp.toFixed(1)}°C</div>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${tempBadge.color}`}>
                       {tempBadge.label}
                     </span>
@@ -576,7 +588,7 @@ export const Dashboard: React.FC = () => {
 
           <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Thermometer className="w-4 h-4 text-rose-600" /> 24h Temperature Trends (�C)
+              <Thermometer className="w-4 h-4 text-rose-600" /> 24h Temperature Trends (°C)
             </h3>
             <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">

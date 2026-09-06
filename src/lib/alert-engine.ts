@@ -1,4 +1,4 @@
-﻿import { FarmAlert, AlertType, AlertSeverity, PlotBed, IoTSensor } from '../types';
+import { FarmAlert, AlertType, AlertSeverity, PlotBed, IoTSensor } from '../types';
 
 export interface AlertRule {
   alertType: AlertType;
@@ -151,14 +151,15 @@ export function evaluateSensorAlerts(
         a.sensorId === sensor.id
     );
     if (!duplicate) {
+      const displayName = sensor.nodeName || sensor.name || sensor.sensorType || sensor.id;
       newAlerts.push({
         id: `alert_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         farmId: sensor.farmId,
         plotId: sensor.plotId,
         sensorId: sensor.id,
         alertType: 'sensor_offline',
-        title: `📡 Sensor Offline: ${sensor.nodeName || sensor.id}`,
-        message: `Sensor unit ${sensor.id} (${sensor.nodeName}) is offline. Check battery and wireless transceiver.`,
+        title: `📡 Sensor Offline: ${displayName}`,
+        message: `Sensor unit ${sensor.id} (${displayName}) is offline. Check battery and wireless transceiver.`,
         severity: 'warning',
         status: 'active',
         createdAt: new Date().toISOString(),
@@ -175,14 +176,15 @@ export function evaluateSensorAlerts(
         a.sensorId === sensor.id
     );
     if (!duplicate) {
+      const displayName = sensor.nodeName || sensor.name || sensor.sensorType || sensor.id;
       newAlerts.push({
         id: `alert_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         farmId: sensor.farmId,
         plotId: sensor.plotId,
         sensorId: sensor.id,
         alertType: 'data_missing',
-        title: `📡 No Data Broadcast: ${sensor.nodeName || sensor.id}`,
-        message: `No telemetry from sensor ${sensor.id} for > 10 minutes.`,
+        title: `📡 No Data Broadcast: ${displayName}`,
+        message: `No telemetry from sensor ${sensor.id} (${displayName}) for > 10 minutes.`,
         severity: 'warning',
         status: 'active',
         createdAt: new Date().toISOString(),

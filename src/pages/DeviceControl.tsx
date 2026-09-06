@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Settings2, Droplet, Wind, Sun, Sprout } from 'lucide-react';
+import { Settings2, Droplet, Wind, Sun, Sprout, Building2 } from 'lucide-react';
 import { logFieldAction } from '../lib/audit-log';
-import { getPlots, getCrops } from '../lib/farm-storage';
-import { PlotBed, Crop } from '../types';
+import { useAgriStore } from '../context/AgriStore';
+import { PlotService } from '../services/canonicalServices';
 
 export const DeviceControl = () => {
-  const [plots, setPlots] = useState<PlotBed[]>([]);
-  const [crops, setCrops] = useState<Crop[]>([]);
+  const { farmlands, activeFarmland, plots: allPlots, crops, triggerActuator } = useAgriStore();
+  const plots = PlotService.getPlotsForFarm(allPlots, activeFarmland?.id);
   const [selectedPlot, setSelectedPlot] = useState('');
   const [controls, setControls] = useState<any>({
     irrigation: { enabled: false, mode: 'auto' },
@@ -14,15 +14,17 @@ export const DeviceControl = () => {
     growLight: { enabled: false, mode: 'manual' }
   });
 
+  // Keep selectedPlot synchronized with the active farm's plot list
   useEffect(() => {
-    const loadedPlots = getPlots();
-    const loadedCrops = getCrops();
-    setPlots(loadedPlots);
-    setCrops(loadedCrops);
-    if (loadedPlots.length > 0) {
-      setSelectedPlot(loadedPlots[0].id);
+    if (plots.length > 0) {
+      const exists = plots.some(p => p.id === selectedPlot);
+      if (!exists) {
+        setSelectedPlot(plots[0].id);
+      }
+    } else {
+      setSelectedPlot('');
     }
-  }, []);
+  }, [plots, selectedPlot, activeFarmland?.id]);
 
   const activePlotObj = plots.find(p => p.id === selectedPlot) || plots[0];
   const plotCode = activePlotObj ? activePlotObj.code : selectedPlot;
@@ -39,6 +41,11 @@ export const DeviceControl = () => {
     const actionType = device === 'growLight' ? 'grow_light' : (device as any);
     const triggeredBy = cleanMode === 'auto' ? 'auto' : 'manual';
     const statusText = nextState ? 'Activated ON' : 'Deactivated OFF';
+
+    if (device === 'irrigation' && nextState) {
+      triggerActuator(selectedPlot, 'irrigation');
+    }
+
     await logFieldAction(
       selectedPlot,
       actionType,
@@ -81,12 +88,17 @@ export const DeviceControl = () => {
     <div className="space-y-6 text-slate-800 font-sans pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <Building2 className="w-3 h-3" /> {activeFarmland?.name || 'Active Farm'}
+            </span>
+          </div>
           <h2 className="text-3xl font-black text-slate-900 flex items-center">
             <Settings2 className="mr-3 text-sky-600 w-8 h-8" />
             Edge Device & Actuator Control
           </h2>
           <p className="text-slate-500 text-sm mt-1 font-medium">
-            Manual and automated actuation of precision irrigation valves, canopy fans, and supplemental lighting
+            Manual and automated actuation of precision irrigation valves, canopy fans, and supplemental lighting for <strong>{activeFarmland?.name || 'this farm'}</strong>
           </p>
         </div>
 

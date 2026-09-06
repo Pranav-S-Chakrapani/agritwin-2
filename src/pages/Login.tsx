@@ -173,7 +173,7 @@ export const Login: React.FC = () => {
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-6">
-          AgriTwin Digital Twin Platform � 2025 � IIIT Dharwad
+          AgriTwin Digital Twin Platform &copy; 2025 &bull; IIIT Dharwad
         </p>
       </div>
     </div>
