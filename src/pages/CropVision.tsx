@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import CropGrowthTracker from '../components/dashboard/CropGrowthTracker';
 import PlantCanopySvg from '../components/common/PlantCanopySvg';
+import { Plant3DCanvas } from '../components/3d/Plant3DCanvas';
 import { useAgriStore } from '../context/AgriStore';
 import { CropService } from '../services/canonicalServices';
 
@@ -195,10 +196,10 @@ export const CropVision = () => {
           </div>
         </div>
 
-        {/* Viewport Frame with HUD & Spectral Filters */}
-        <div className="relative w-full h-[420px] bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center select-none shadow-2xl">
+        {/* Viewport Frame with 3D Digital Twin Canvas & HUD */}
+        <div className="relative w-full h-[460px] bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center select-none shadow-2xl">
           
-          {/* Background Image / SVG Simulation */}
+          {/* Background Image or Real-Time 3D Digital Twin Scene */}
           <div className={`w-full h-full relative flex items-center justify-center transition-all duration-300 ${
             filterMode === 'ndvi' ? 'hue-rotate-90 saturate-200 contrast-125' : filterMode === 'thermal' ? 'hue-rotate-180 invert contrast-150' : ''
           }`}>
@@ -209,18 +210,18 @@ export const CropVision = () => {
                 className="w-full h-full object-cover filter brightness-90"
               />
             ) : (
-              <div className="w-full h-full relative flex items-center justify-center bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-                <div 
-                  className="absolute inset-0 opacity-15"
-                  style={{
-                    backgroundImage: `radial-gradient(#10b981 1px, transparent 1px)`,
-                    backgroundSize: '30px 30px',
+              <div className="w-full h-full relative">
+                <Plant3DCanvas
+                  plot={activePlot}
+                  crop={assignedCrop}
+                  visionData={{
+                    diseaseRisk,
+                    plantHeight,
+                    canopyCoverage,
+                    fruitRipeness
                   }}
-                />
-                <PlantCanopySvg
-                  stage={CropService.getCanopyStage(growthStageLabel)}
-                  cropType={assignedCrop?.name || 'Crop'}
-                  size={280}
+                  showCaption={true}
+                  showMetricsOverlay={false}
                 />
               </div>
             )}

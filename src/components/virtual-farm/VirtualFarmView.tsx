@@ -21,8 +21,8 @@ import {
 } from 'lucide-react';
 import { useAgriStore } from '../../context/AgriStore';
 import { DataSourceBadge } from '../common/DataSourceBadge';
-import { PrototypeModeBanner } from '../common/PrototypeModeBanner';
 import PlantCanopySvg from '../common/PlantCanopySvg';
+import { Plant3DCanvas } from '../3d/Plant3DCanvas';
 import { PlotBed, Crop, TelemetryObservation } from '../../types';
 import { PlotService, CropService } from '../../services/canonicalServices';
 import { formatTemperature, formatMoisture, formatPh } from '../../lib/formatters';
@@ -40,6 +40,7 @@ export const VirtualFarmView: React.FC = () => {
 
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [display3D, setDisplay3D] = useState(true);
 
   const unit = activeFarmland?.unit || 'acres';
   const totalFarmLand = activeFarmland?.totalArea ?? 20;
@@ -264,8 +265,29 @@ export const VirtualFarmView: React.FC = () => {
             </p>
           </div>
 
-          {/* System Health / Data Summary Badge */}
-          <div className="flex items-center space-x-3 self-start sm:self-auto">
+          {/* System Health / Data Summary Badge + 3D View Mode Toggle */}
+          <div className="flex items-center space-x-3 self-start sm:self-auto flex-wrap gap-2">
+            <div className="bg-[#140f0d] p-1 rounded-xl flex items-center space-x-1 border border-[#3b2d24]">
+              <button
+                type="button"
+                onClick={() => setDisplay3D(true)}
+                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                  display3D ? 'bg-emerald-600 text-white shadow-xs' : 'text-amber-400 hover:text-white'
+                }`}
+              >
+                3D Digital Twins
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplay3D(false)}
+                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                  !display3D ? 'bg-emerald-600 text-white shadow-xs' : 'text-amber-400 hover:text-white'
+                }`}
+              >
+                2D Canopy Svg
+              </button>
+            </div>
+
             <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center space-x-1.5 ${farmOverallStatus.color}`}>
               <Activity className="w-4 h-4" />
               <span>{farmOverallStatus.label}</span>
@@ -307,16 +329,28 @@ export const VirtualFarmView: React.FC = () => {
                       : 'border-[#4a3a2f] hover:border-amber-600/80 hover:shadow-2xl'
                   }`}
                 >
-                  {/* Top-Down Crop Canopy Layer or Rich Fallow Soil Texture */}
+                  {/* Top-Down Crop Canopy Layer or 3D Digital Twin or Rich Fallow Soil Texture */}
                   <div className="absolute inset-0 z-0 overflow-hidden">
                     {crop ? (
-                      <div className="w-full h-full transform group-hover:scale-105 transition-transform duration-700">
-                        <PlantCanopySvg 
-                          stage={CropService.getCanopyStage(CropService.getCurrentStageForPlot(sec, crop))} 
-                          cropType={crop.name} 
-                          size={400} 
-                        />
-                      </div>
+                      display3D ? (
+                        <div className="w-full h-full pointer-events-none">
+                          <Plant3DCanvas
+                            plot={sec}
+                            crop={crop}
+                            compact={true}
+                            showCaption={false}
+                            showMetricsOverlay={false}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full transform group-hover:scale-105 transition-transform duration-700">
+                          <PlantCanopySvg 
+                            stage={CropService.getCanopyStage(CropService.getCurrentStageForPlot(sec, crop))} 
+                            cropType={crop.name} 
+                            size={400} 
+                          />
+                        </div>
+                      )
                     ) : (
                       <div className="w-full h-full bg-[#2a1d15] bg-[radial-gradient(#3a291e_1px,transparent_1px)] [background-size:12px_12px] flex items-center justify-center p-6 text-center">
                         <div className="space-y-1 text-amber-700/60 group-hover:text-amber-600 transition-colors">
@@ -517,6 +551,21 @@ export const VirtualFarmView: React.FC = () => {
               </p>
             </div>
           </div>
+
+          {/* Interactive 3D Digital Twin Viewport */}
+          {selectedCropObj && (
+            <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 p-1">
+              <div className="h-[320px] w-full">
+                <Plant3DCanvas
+                  plot={selectedPlotObj}
+                  crop={selectedCropObj}
+                  height={320}
+                  showCaption={true}
+                  showMetricsOverlay={true}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

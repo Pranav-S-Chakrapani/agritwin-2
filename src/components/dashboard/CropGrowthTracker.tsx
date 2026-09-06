@@ -16,7 +16,8 @@ import {
   STAGES_ORDER, 
   PhenologicalStageKey 
 } from '../../lib/gdd-calculator';
-import { getPlots, getCrops } from '../../lib/farm-storage';
+import { useAgriStore } from '../../context/AgriStore';
+import { CropService } from '../../services/canonicalServices';
 import PlantCanopySvg from '../common/PlantCanopySvg';
 
 interface CropGrowthTrackerProps {
@@ -38,19 +39,29 @@ export const CropGrowthTracker: React.FC<CropGrowthTrackerProps> = ({
   const [selectedStageKey, setSelectedStageKey] = useState<PhenologicalStageKey | null>(null);
   const [showMathModal, setShowMathModal] = useState(false);
 
-  const plots = getPlots();
-  const crops = getCrops();
+  const { plots, crops } = useAgriStore();
   const activePlot = (plotId ? plots.find(p => p.id === plotId || p.code === plotId) : plots[0]) || plots[0];
   const activeCrop = activePlot && activePlot.cropId ? crops.find(c => c.id === activePlot.cropId) : crops[0];
+
+  const canonicalStage = CropService.getCurrentStageForPlot(activePlot, activeCrop);
+  const canonicalStageKey = CropService.getCanopyStage(canonicalStage) as PhenologicalStageKey;
 
   const resolvedCropName = cropName || (activeCrop ? `${activeCrop.name} (${activeCrop.variety})` : (activePlot ? activePlot.name : 'Crop Cultivar'));
   const resolvedPlotCode = activePlot ? activePlot.code : 'PLOT';
 
   const growth = useMemo(() => {
-    return computeGrowthStatus(activePlot?.id, currentTemp);
-  }, [activePlot?.id, currentTemp]);
+    const raw = computeGrowthStatus(activePlot?.id, currentTemp);
+    const matched = raw.stagesList.find(s => s.key === canonicalStageKey) || raw.currentStage;
+    return {
+      ...raw,
+      currentStage: {
+        ...matched,
+        name: canonicalStage
+      }
+    };
+  }, [activePlot?.id, currentTemp, canonicalStage, canonicalStageKey]);
 
-  const activeStageKey = selectedStageKey || growth.currentStage.key;
+  const activeStageKey = selectedStageKey || canonicalStageKey;
   const activeStageObj = growth.stagesList.find(s => s.key === activeStageKey) || growth.currentStage;
 
   // Circular GDD Gauge calculations
