@@ -556,3 +556,20 @@ export async function getSupabaseTableCounts(): Promise<{
     return { farmsCount: 0, plotsCount: 0, sensorsCount: 0, telemetryCount: 0, activityCount: 0, alertsCount: 0 };
   }
 }
+
+// ── 13. Clear All Simulated Telemetry from Supabase ─────────────────────────
+export async function clearSimulatedTelemetryFromSupabase(): Promise<{ count: number; error: any }> {
+  if (!isSupabaseConfigured) {
+    return { count: 0, error: null };
+  }
+  try {
+    const { error, count } = await supabase
+      .from('telemetry_observations')
+      .delete({ count: 'exact' })
+      .eq('data_source', 'SIMULATED');
+    return { count: count ?? 0, error };
+  } catch (err: any) {
+    console.warn('[SUPABASE CLEAR SIMULATED EXCEPTION]', err?.message);
+    return { count: 0, error: err };
+  }
+}

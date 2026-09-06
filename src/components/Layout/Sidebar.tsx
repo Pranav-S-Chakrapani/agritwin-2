@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -228,6 +228,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
                 <NavLink to="/db-monitor" className={subNavItemClass} onClick={onClose}>
                   <Database className="w-4 h-4 text-indigo-400" />
                   <span>System Health</span>
+                </NavLink>
+                <NavLink to="/developer-tools" className={subNavItemClass} onClick={onClose}>
+                  <Cpu className="w-4 h-4 text-purple-400" />
+                  <span>Developer Tools</span>
                 </NavLink>
                 <NavLink to="/users" className={subNavItemClass} onClick={onClose}>
                   <Users className="w-4 h-4 text-indigo-400" />

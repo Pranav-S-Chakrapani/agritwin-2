@@ -10,6 +10,7 @@ import {
   saveAlertToSupabase,
   subscribeToSupabaseMultiTable,
   saveTelemetryObservationToSupabase,
+  clearSimulatedTelemetryFromSupabase,
   isSupabaseConfigured
 } from '../lib/supabase';
 import { telemetrySimulator } from '../services/telemetrySimulator';
@@ -220,6 +221,7 @@ interface AgriStoreContextType {
   isDemoTelemetryActive: boolean;
   toggleDemoTelemetry: (enable: boolean) => void;
   triggerTelemetrySimulationNow: () => Promise<void>;
+  clearSimulatedTelemetry: () => Promise<{ count: number; message: string }>;
   seedMultiFarmSystem: () => Promise<any>;
   setCurrentUser: (u: UserProfile | null) => void;
   selectFarmland: (farmId: string) => void;
@@ -312,14 +314,42 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     saveSensorsToSupabase(sensors);
   }, []);
 
+  // ── Ingestion Boundary Physiological Validator ────────────────────────────
+  // Strict physical ranges: pH 3.5-9.0, Moisture 0-100%, Temp 15-42°C, Humidity 0-100%
+  const validateAndTagTelemetry = (obs: TelemetryObservation): TelemetryObservation => {
+    let qualityStatus = obs.qualityStatus || 'VALID';
+    const key = (obs.parameterKey || '').toLowerCase();
+    const val = Number(obs.value);
+
+    if (isNaN(val)) {
+      qualityStatus = 'SUSPECT';
+    } else if (key.includes('ph') && (val < 3.5 || val > 9.0)) {
+      qualityStatus = 'SUSPECT';
+    } else if ((key.includes('moisture') || key.includes('sm')) && (val < 0.0 || val > 100.0)) {
+      qualityStatus = 'SUSPECT';
+    } else if ((key.includes('temp') || key.includes('at')) && (val < 10.0 || val > 48.0)) {
+      qualityStatus = 'SUSPECT';
+    } else if (key.includes('hum') && (val < 0.0 || val > 100.0)) {
+      qualityStatus = 'SUSPECT';
+    }
+
+    return {
+      ...obs,
+      qualityStatus: qualityStatus as any,
+    };
+  };
+
   // Real-time Telemetry Processor (used by Supabase Realtime & Simulator)
   const processIncomingTelemetry = useCallback((incomingObs: TelemetryObservation[]) => {
     if (!incomingObs || incomingObs.length === 0) return;
 
+    // Validate at the ingestion boundary
+    const validatedIncoming = incomingObs.map(validateAndTagTelemetry);
+
     setTelemetryObservations((prev) => {
       const obsMap = new Map<string, TelemetryObservation>();
       (prev || []).forEach((o) => { if (o && o.id) obsMap.set(o.id, o); });
-      (incomingObs || []).forEach((o) => { if (o && o.id) obsMap.set(o.id, o); });
+      validatedIncoming.forEach((o) => { if (o && o.id) obsMap.set(o.id, o); });
 
       const validObs = Array.from(obsMap.values()).filter((o) => o && o.id && o.measurementTimestamp);
       const mergedList = validObs.sort((a, b) => {
@@ -334,10 +364,10 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const plotObs = mergedList.filter((o) => o.plotId === plot.id || o.plotId === plot.code);
           if (plotObs.length === 0) return plot;
 
-          const latestSm = plotObs.find((o) => o.parameterKey === 'soil_moisture');
-          const latestTemp = plotObs.find((o) => o.parameterKey === 'air_temperature' || o.parameterKey === 'soil_temperature');
-          const latestPh = plotObs.find((o) => o.parameterKey === 'soil_ph');
-          const latestHum = plotObs.find((o) => o.parameterKey === 'humidity');
+          const latestSm = plotObs.find((o) => o.parameterKey === 'soil_moisture' && o.qualityStatus !== 'SUSPECT');
+          const latestTemp = plotObs.find((o) => (o.parameterKey === 'air_temperature' || o.parameterKey === 'soil_temperature') && o.qualityStatus !== 'SUSPECT');
+          const latestPh = plotObs.find((o) => o.parameterKey === 'soil_ph' && o.qualityStatus !== 'SUSPECT');
+          const latestHum = plotObs.find((o) => o.parameterKey === 'humidity' && o.qualityStatus !== 'SUSPECT');
 
           const newSm = latestSm ? latestSm.value : plot.soilMoisture;
           const newTemp = latestTemp ? latestTemp.value : plot.airTemp;
@@ -472,6 +502,32 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
       }
     });
+  };
+
+  const clearSimulatedTelemetry = async (): Promise<{ count: number; message: string }> => {
+    // 1. Delete from Supabase
+    const { count: deletedDbCount, error } = await clearSimulatedTelemetryFromSupabase();
+
+    // 2. Filter out simulated telemetry from in-memory state
+    let memoryDeleted = 0;
+    setTelemetryObservations((prev) => {
+      const nonSimulated = (prev || []).filter((o) => o.dataSource !== 'SIMULATED');
+      memoryDeleted = (prev || []).length - nonSimulated.length;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(STORE_KEYS.TELEMETRY_OBSERVATIONS, JSON.stringify(nonSimulated.slice(0, 50)));
+        } catch {}
+      }
+      return nonSimulated;
+    });
+
+    const totalPurged = Math.max(deletedDbCount, memoryDeleted);
+    const msg = error
+      ? `Purged ${memoryDeleted} records from local session (Supabase error: ${error.message})`
+      : `Successfully purged ${totalPurged} SIMULATED telemetry observation(s) from database & session.`;
+
+    ActivityLogger.plotUpdated('ALL', `Admin purged ${totalPurged} simulated records. Database restored to clean state.`);
+    return { count: totalPurged, message: msg };
   };
 
   // LocalStorage Persist Effects
@@ -913,6 +969,7 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         isDemoTelemetryActive,
         toggleDemoTelemetry,
         triggerTelemetrySimulationNow,
+        clearSimulatedTelemetry,
         seedMultiFarmSystem,
         setCurrentUser,
         selectFarmland,

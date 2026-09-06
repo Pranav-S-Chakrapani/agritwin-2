@@ -33,6 +33,7 @@ import Alerts from './pages/Alerts';
 import AddNewFarmlandPage from './pages/AddNewFarmlandPage';
 import ManualTelemetryPage from './pages/ManualTelemetryPage';
 import ResearchView from './pages/ResearchView';
+import DeveloperTools from './pages/DeveloperTools';
 
 import { AgriStoreProvider } from './context/AgriStore';
 
@@ -110,6 +111,7 @@ function App() {
 
                 {/* Advanced & Administration Tier */}
                 <Route path="db-monitor" element={<AdminRoute><DatabaseMonitor /></AdminRoute>} />
+                <Route path="developer-tools" element={<AdminRoute><DeveloperTools /></AdminRoute>} />
                 <Route path="add-farmland" element={<AdminRoute><AddNewFarmlandPage /></AdminRoute>} />
                 <Route path="manual-telemetry" element={<AdminRoute><ManualTelemetryPage /></AdminRoute>} />
                 <Route path="research" element={<AdminRoute><ResearchView /></AdminRoute>} />

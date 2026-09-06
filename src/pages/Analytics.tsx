@@ -309,9 +309,6 @@ export const Analytics: React.FC = () => {
 
   return (
     <div className="space-y-6 text-slate-800">
-      {/* Prototype Banner */}
-      <PrototypeModeBanner />
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/95 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-slate-200/80">
         <div>

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import {
@@ -93,37 +93,6 @@ const GlobalHeaderBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean
               </span>
             )}
           </Link>
-
-          {/* Simulator Stream Control */}
-          <div className="hidden md:flex items-center gap-1.5 bg-slate-900 text-white p-1 pl-3 rounded-xl border border-slate-800 shadow-xs text-xs font-bold">
-            <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${isDemoTelemetryActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-              <span className="text-[11px] font-black text-slate-200">
-                {isDemoTelemetryActive ? 'Live 10s Feed' : 'Paused'}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => toggleDemoTelemetry(!isDemoTelemetryActive)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-all cursor-pointer ${
-                isDemoTelemetryActive
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-              }`}
-            >
-              {isDemoTelemetryActive ? 'PAUSE' : 'START'}
-            </button>
-            <button
-              type="button"
-              onClick={handleManualSimulate}
-              disabled={isSimulating}
-              className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-[11px] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
-              title="Simulate new sensor readings now"
-            >
-              <Sparkles className={`w-3.5 h-3.5 ${isSimulating ? 'animate-spin' : ''}`} />
-              <span>{isSimulating ? 'Updating...' : '⚡ SIMULATE'}</span>
-            </button>
-          </div>
 
           {isAdmin && (
             <Link
