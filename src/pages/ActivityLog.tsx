@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import {
   ClipboardList,
   Calendar,
-  Filter,
   Download,
   Search,
   Building2,
@@ -12,10 +11,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Info,
-  ChevronDown,
-  RefreshCw,
   FileSpreadsheet,
-  FileText
 } from 'lucide-react';
 import { useAgriStore } from '../context/AgriStore';
 import { useAuth } from '../context/AuthContext';
@@ -24,17 +20,21 @@ import { exportActivityLog, exportTelemetry, exportAlerts } from '../lib/csv-exp
 
 type TimeFilter = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
 
-function getSeverityBadge(severity: ActivitySeverity) {
+function getSeverityInfo(severity: ActivitySeverity) {
   switch (severity) {
-    case 'critical':
-      return { label: 'Critical', bg: 'bg-rose-100 text-rose-800 border-rose-200', icon: AlertCircle, dot: 'bg-rose-500' };
-    case 'warning':
-      return { label: 'Warning', bg: 'bg-amber-100 text-amber-800 border-amber-200', icon: AlertCircle, dot: 'bg-amber-500' };
-    case 'success':
-      return { label: 'Success', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: CheckCircle2, dot: 'bg-emerald-500' };
-    case 'info':
-    default:
-      return { label: 'Info', bg: 'bg-blue-100 text-blue-800 border-blue-200', icon: Info, dot: 'bg-blue-500' };
+    case 'critical': return { label: 'Critical', cls: 'danger' };
+    case 'warning':  return { label: 'Warning',  cls: 'warning' };
+    case 'success':  return { label: 'Success',  cls: 'success' };
+    default:         return { label: 'Info',     cls: 'info' };
+  }
+}
+
+function getSeverityDot(severity: ActivitySeverity) {
+  switch (severity) {
+    case 'critical': return 'var(--color-danger)';
+    case 'warning':  return 'var(--color-warning)';
+    case 'success':  return 'var(--color-success)';
+    default:         return 'var(--color-info)';
   }
 }
 
@@ -51,18 +51,16 @@ export const ActivityLog: React.FC = () => {
   const [customFrom, setCustomFrom] = useState<string>('');
   const [customTo, setCustomTo] = useState<string>('');
   const [exportType, setExportType] = useState<'activity' | 'telemetry' | 'alerts'>('activity');
-  // Date filtering logic
+
   const filteredActivities = useMemo(() => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
-    const startOf7Days = startOfToday - 7 * 24 * 60 * 60 * 1000;
-    const startOf30Days = startOfToday - 30 * 24 * 60 * 60 * 1000;
+    const startOfYesterday = startOfToday - 86400000;
+    const startOf7Days = startOfToday - 7 * 86400000;
+    const startOf30Days = startOfToday - 30 * 86400000;
 
     return fieldActivities.filter((act) => {
       const actTime = new Date(act.timestamp).getTime();
-
-      // Time Filter
       if (timeFilter === 'today' && actTime < startOfToday) return false;
       if (timeFilter === 'yesterday' && (actTime < startOfYesterday || actTime >= startOfToday)) return false;
       if (timeFilter === '7days' && actTime < startOf7Days) return false;
@@ -71,163 +69,124 @@ export const ActivityLog: React.FC = () => {
         if (customFrom && actTime < new Date(customFrom).getTime()) return false;
         if (customTo && actTime > new Date(customTo + 'T23:59:59').getTime()) return false;
       }
-
-      // Farm Filter
       if (farmFilter !== 'all' && act.farmId !== farmFilter) return false;
-
-      // Plot Filter
       if (plotFilter !== 'all' && act.plotId !== plotFilter) return false;
-
-      // Severity Filter
       if (severityFilter !== 'all' && act.severity !== severityFilter) return false;
-
-      // Type Filter
       if (typeFilter !== 'all' && act.eventType !== typeFilter) return false;
-
-      // Search Filter
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
-        const matchesTitle = act.title.toLowerCase().includes(term);
-        const matchesDesc = act.description.toLowerCase().includes(term);
-        const matchesCreated = (act.createdBy || '').toLowerCase().includes(term);
-        if (!matchesTitle && !matchesDesc && !matchesCreated) return false;
+        if (!act.title.toLowerCase().includes(term) && !act.description.toLowerCase().includes(term) && !(act.createdBy || '').toLowerCase().includes(term)) return false;
       }
-
       return true;
     });
   }, [fieldActivities, timeFilter, farmFilter, plotFilter, severityFilter, typeFilter, searchTerm, customFrom, customTo]);
 
   const handleExport = (format: 'csv' | 'excel') => {
-    const filter = {
-      farmId: farmFilter,
-      plotId: plotFilter,
-      severity: severityFilter as any,
-      eventType: typeFilter as any,
-      dateFrom: customFrom || undefined,
-      dateTo: customTo || undefined,
-      format,
-    };
-
-    if (exportType === 'activity') {
-      exportActivityLog(filteredActivities, filter, userProfile?.full_name);
-    } else if (exportType === 'telemetry') {
-      exportTelemetry(telemetryObservations, filter, userProfile?.full_name);
-    } else {
-      exportAlerts(alerts, filter, userProfile?.full_name);
-    }
+    const filter = { farmId: farmFilter, plotId: plotFilter, severity: severityFilter as any, eventType: typeFilter as any, dateFrom: customFrom || undefined, dateTo: customTo || undefined, format };
+    if (exportType === 'activity') exportActivityLog(filteredActivities, filter, userProfile?.full_name);
+    else if (exportType === 'telemetry') exportTelemetry(telemetryObservations, filter, userProfile?.full_name);
+    else exportAlerts(alerts, filter, userProfile?.full_name);
   };
+
+  const TIME_TABS: { id: TimeFilter; label: string }[] = [
+    { id: 'all', label: 'All History' },
+    { id: 'today', label: 'Today' },
+    { id: 'yesterday', label: 'Yesterday' },
+    { id: '7days', label: 'Last 7 Days' },
+    { id: '30days', label: 'Last 30 Days' },
+    { id: 'custom', label: 'Custom' },
+  ];
+
   return (
-    <div className="space-y-6 font-sans text-slate-800">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white rounded-3xl p-6 shadow-xl border border-emerald-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+      {/* ── Page Header ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div className="flex items-center space-x-2">
-            <span className="bg-emerald-500/20 text-emerald-300 text-[11px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-emerald-500/30 flex items-center gap-1.5">
-              <ClipboardList className="w-3.5 h-3.5 text-emerald-400" />
-              Field Activity Log &amp; Audit Trail
-            </span>
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-black mt-2 tracking-tight">Farm Operations Timeline</h1>
-          <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-            Complete historical audit trail of all sensor readings, telemetry arrivals, actuator cycles, alerts, and field operations.
+          <h1 className="at-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 'var(--radius-lg)',
+              background: 'var(--color-primary-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <ClipboardList style={{ width: 18, height: 18, color: 'var(--color-primary)' }} />
+            </div>
+            Farm Operations Timeline
+          </h1>
+          <p className="at-page-subtitle">
+            Complete audit trail — sensor readings, telemetry, actuator cycles, alerts, and field operations.
           </p>
         </div>
-
-        {/* Quick Export Actions */}
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          <button
-            onClick={() => handleExport('csv')}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all cursor-pointer"
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select
+            value={exportType}
+            onChange={e => setExportType(e.target.value as any)}
+            className="at-input at-select"
+            style={{ height: 36, fontSize: 12, width: 'auto', minWidth: 120 }}
+            aria-label="Select export type"
           >
-            <Download className="w-4 h-4" />
-            Download CSV ({filteredActivities.length})
+            <option value="activity">Activity Log</option>
+            <option value="telemetry">Telemetry</option>
+            <option value="alerts">Alerts</option>
+          </select>
+          <button onClick={() => handleExport('csv')} className="at-btn at-btn-primary" id="at-export-activity-btn">
+            <Download style={{ width: 14, height: 14 }} />
+            CSV ({filteredActivities.length})
           </button>
-          <button
-            onClick={() => handleExport('excel')}
-            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+          <button onClick={() => handleExport('excel')} className="at-btn at-btn-secondary" id="at-export-excel-btn">
+            <FileSpreadsheet style={{ width: 14, height: 14 }} />
             Excel
           </button>
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-4">
-        {/* Time Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {[
-            { id: 'all', label: 'All History' },
-            { id: 'today', label: 'Today' },
-            { id: 'yesterday', label: 'Yesterday' },
-            { id: '7days', label: 'Last 7 Days' },
-            { id: '30days', label: 'Last 30 Days' },
-            { id: 'custom', label: 'Custom Date' },
-          ].map((tab) => (
+      {/* ── Filter Card ── */}
+      <div className="at-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Time filter tabs */}
+        <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 2 }}>
+          {TIME_TABS.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setTimeFilter(tab.id as TimeFilter)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                timeFilter === tab.id
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
+              onClick={() => setTimeFilter(tab.id)}
+              className={`at-filter-btn${timeFilter === tab.id ? ' active' : ''}`}
             >
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Custom Date Range Picker */}
+        {/* Custom date range */}
         {timeFilter === 'custom' && (
-          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200 flex-wrap">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-              <Calendar className="w-4 h-4 text-emerald-600" />
-              <span>From:</span>
-              <input
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
-              />
-            </div>
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-              <span>To:</span>
-              <input
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
-              />
-            </div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 14px',
+            background: 'var(--color-surface-muted)',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--color-border)',
+            flexWrap: 'wrap',
+          }}>
+            <Calendar style={{ width: 15, height: 15, color: 'var(--color-primary)', flexShrink: 0 }} />
+            <label className="at-label" style={{ marginBottom: 0, fontSize: 12 }}>From:</label>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="at-input" style={{ height: 34, fontSize: 12, width: 'auto' }} aria-label="From date" />
+            <label className="at-label" style={{ marginBottom: 0, fontSize: 12 }}>To:</label>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="at-input" style={{ height: 34, fontSize: 12, width: 'auto' }} aria-label="To date" />
           </div>
         )}
 
-        {/* Dropdown Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
-          {/* Farm Filter */}
+        {/* Dropdown filters */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+          gap: 12, paddingTop: 12, borderTop: '1px solid var(--color-border-muted)',
+        }}>
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">Farm</label>
-            <select
-              value={farmFilter}
-              onChange={(e) => setFarmFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="all">All Farms ({farmlands.length})</option>
-              {farmlands.map((f) => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
+            <label className="at-label" style={{ fontSize: 11 }}>Farm</label>
+            <select value={farmFilter} onChange={e => setFarmFilter(e.target.value)} className="at-input at-select" style={{ height: 36, fontSize: 13 }} aria-label="Filter by farm">
+              <option value="all">All Farms</option>
+              {farmlands.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </div>
-
-          {/* Severity Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">Severity</label>
-            <select
-              value={severityFilter}
-              onChange={(e) => setSeverityFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
+            <label className="at-label" style={{ fontSize: 11 }}>Severity</label>
+            <select value={severityFilter} onChange={e => setSeverityFilter(e.target.value)} className="at-input at-select" style={{ height: 36, fontSize: 13 }} aria-label="Filter by severity">
               <option value="all">All Severities</option>
               <option value="info">Info</option>
               <option value="warning">Warning</option>
@@ -235,19 +194,13 @@ export const ActivityLog: React.FC = () => {
               <option value="success">Success</option>
             </select>
           </div>
-
-          {/* Event Type Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">Event Type</label>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="all">All Event Types</option>
-              <option value="telemetry_update">Field Sensor Data</option>
-              <option value="irrigation_triggered">Irrigation Pulses</option>
-              <option value="hvac_triggered">Fan &amp; HVAC</option>
+            <label className="at-label" style={{ fontSize: 11 }}>Event Type</label>
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="at-input at-select" style={{ height: 36, fontSize: 13 }} aria-label="Filter by event type">
+              <option value="all">All Events</option>
+              <option value="telemetry_update">Sensor Data</option>
+              <option value="irrigation_triggered">Irrigation</option>
+              <option value="hvac_triggered">Fan / HVAC</option>
               <option value="alert_generated">Alerts</option>
               <option value="farm_created">Farm Added</option>
               <option value="plot_created">Plot Added</option>
@@ -255,82 +208,109 @@ export const ActivityLog: React.FC = () => {
               <option value="csv_export">CSV Export</option>
             </select>
           </div>
-
-          {/* Search Box */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">Search Keywords</label>
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search activity..."
-                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
+            <label className="at-label" style={{ fontSize: 11 }}>Search</label>
+            <div className="at-search">
+              <Search className="at-search-icon" style={{ width: 14, height: 14 }} />
+              <input className="at-input" type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search activity..." style={{ paddingLeft: 32, height: 36, fontSize: 13 }} aria-label="Search activities" />
             </div>
           </div>
         </div>
       </div>
-      {/* Timeline List */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-emerald-600" />
-            Field Events ({filteredActivities.length})
-          </h2>
-          <span className="text-xs text-slate-400">Chronological activity timeline</span>
+
+      {/* ── Timeline ── */}
+      <div className="at-card">
+        <div className="at-card-header">
+          <div className="at-card-title">
+            <Clock style={{ width: 16, height: 16, color: 'var(--color-primary)' }} />
+            Field Events
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-muted)' }}>
+              ({filteredActivities.length})
+            </span>
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Chronological</span>
         </div>
 
         {filteredActivities.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-            No activity records matching your current filter.
+          <div className="at-empty" style={{ paddingTop: 32, paddingBottom: 32 }}>
+            <div className="at-empty-icon">
+              <ClipboardList style={{ width: 24, height: 24 }} />
+            </div>
+            <div className="at-empty-title">No activities found</div>
+            <div className="at-empty-text">No activity records match your current filter settings.</div>
           </div>
         ) : (
-          <div className="relative pl-6 border-l-2 border-emerald-500/20 space-y-4 my-2">
-            {filteredActivities.map((act) => {
-              const badge = getSeverityBadge(act.severity);
-              const farm = farmlands.find((f) => f.id === act.farmId);
-              const plot = plots.find((p) => p.id === act.plotId || p.code === act.plotId);
-              const timeStr = new Date(act.timestamp).toLocaleString();
+          <div style={{
+            position: 'relative', paddingLeft: 28,
+            borderLeft: '2px solid var(--color-primary-border)',
+            display: 'flex', flexDirection: 'column', gap: 14,
+          }}>
+            {filteredActivities.map(act => {
+              const sev = getSeverityInfo(act.severity);
+              const dotColor = getSeverityDot(act.severity);
+              const farm = farmlands.find(f => f.id === act.farmId);
+              const plot = plots.find(p => p.id === act.plotId || p.code === act.plotId);
 
               return (
-                <div key={act.id} className="relative group">
-                  {/* Timeline bullet */}
-                  <div className={`absolute -left-[31px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs ${badge.dot}`} />
+                <div key={act.id} style={{ position: 'relative' }}>
+                  {/* Timeline dot */}
+                  <div style={{
+                    position: 'absolute',
+                    left: -37,
+                    top: 14,
+                    width: 12, height: 12,
+                    borderRadius: '50%',
+                    background: dotColor,
+                    border: '2px solid var(--color-surface)',
+                    boxShadow: `0 0 0 3px ${dotColor}25`,
+                  }} />
 
-                  <div className="bg-slate-50/70 hover:bg-slate-50 rounded-2xl p-4 border border-slate-200 transition-all space-y-2">
-                    <div className="flex items-start justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${badge.bg}`}>
-                          {badge.label}
-                        </span>
-                        <h3 className="font-extrabold text-sm text-slate-900">{act.title}</h3>
+                  <div style={{
+                    background: 'var(--color-surface-muted)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-xl)',
+                    padding: '14px 16px',
+                    display: 'flex', flexDirection: 'column', gap: 8,
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--color-surface-muted)'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span className={`at-badge ${sev.cls}`}>{sev.label}</span>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-text-primary)' }}>{act.title}</span>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-400">{timeStr}</span>
+                      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', flexShrink: 0, fontWeight: 500 }}>
+                        {new Date(act.timestamp).toLocaleString()}
+                      </span>
                     </div>
 
-                    <p className="text-xs text-slate-600 leading-relaxed">{act.description}</p>
+                    <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>{act.description}</p>
 
-                    {/* Metadata strip */}
-                    <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 flex-wrap">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 11, color: 'var(--color-text-muted)', borderTop: '1px solid var(--color-border-muted)', paddingTop: 8, flexWrap: 'wrap' }}>
                       {farm && (
-                        <span className="flex items-center gap-1 font-semibold text-slate-700">
-                          <Building2 className="w-3 h-3 text-emerald-600" /> {farm.name}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                          <Building2 style={{ width: 11, height: 11, color: 'var(--color-primary)' }} />
+                          {farm.name}
                         </span>
                       )}
                       {plot && (
-                        <span className="flex items-center gap-1 font-semibold text-slate-700">
-                          <Sprout className="w-3 h-3 text-teal-600" /> {plot.name} ({plot.code})
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                          <Sprout style={{ width: 11, height: 11, color: 'var(--color-secondary)' }} />
+                          {plot.name} ({plot.code})
                         </span>
                       )}
                       {act.sensorId && (
-                        <span className="flex items-center gap-1 font-mono text-indigo-700 font-bold">
-                          <Cpu className="w-3 h-3 text-indigo-500" /> {act.sensorId}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'monospace', fontWeight: 700, color: '#6366f1' }}>
+                          <Cpu style={{ width: 11, height: 11 }} />
+                          {act.sensorId}
                         </span>
                       )}
                       {act.createdBy && (
-                        <span className="text-slate-400 ml-auto">By: <strong className="text-slate-700">{act.createdBy}</strong></span>
+                        <span style={{ marginLeft: 'auto', color: 'var(--color-text-muted)' }}>
+                          By: <strong style={{ color: 'var(--color-text-secondary)' }}>{act.createdBy}</strong>
+                        </span>
                       )}
                     </div>
                   </div>

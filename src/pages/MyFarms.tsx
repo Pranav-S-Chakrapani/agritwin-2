@@ -223,8 +223,8 @@ export const MyFarms: React.FC = () => {
           const isSelected = activeFarmland?.id === farm.id;
 
           return (
-            <div key={farm.id} className={`bg-white rounded-3xl border transition-all shadow-xs ${
-              isSelected ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200'
+            <div key={farm.id} className={`bg-white rounded-2xl border transition-all shadow-xs ${
+              isSelected ? 'border-emerald-400 bg-emerald-50/20' : 'border-slate-200'
             }`}>
               {/* Farm Header Card */}
               <div className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100">

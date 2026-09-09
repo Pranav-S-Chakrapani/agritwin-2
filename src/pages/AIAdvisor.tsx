@@ -7,12 +7,21 @@ import {
   Check,
   Sparkles,
   Info,
-  AlertCircle
+  AlertCircle,
+  Sprout,
+  Thermometer,
+  Activity,
 } from 'lucide-react';
 import { useAgriStore } from '../context/AgriStore';
 import { DataSourceBadge } from '../components/common/DataSourceBadge';
 import { PrototypeModeBanner } from '../components/common/PrototypeModeBanner';
 import { SensorProvenance } from '../components/common/SensorProvenance';
+
+const SendIcon = ({ style }: { style?: React.CSSProperties }) => (
+  <svg style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+  </svg>
+);
 
 export const AIAdvisor: React.FC = () => {
   const { activeSections: plots, crops, triggerActuator, telemetryObservations, activeFarmland } = useAgriStore();
@@ -22,16 +31,15 @@ export const AIAdvisor: React.FC = () => {
   const [answering, setAnswering] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  const activePlot = useMemo(() => {
-    return plots.find(p => p.id === selectedPlotId) || plots[0] || null;
-  }, [plots, selectedPlotId]);
+  const activePlot = useMemo(() =>
+    plots.find(p => p.id === selectedPlotId) || plots[0] || null,
+    [plots, selectedPlotId]);
 
   const assignedCrop = useMemo(() => {
     if (!activePlot || !activePlot.cropId) return null;
     return crops.find(c => c.id === activePlot.cropId) || null;
   }, [activePlot, crops]);
 
-  // Retrieve latest observation for selected plot
   const latestObs = useMemo(() => {
     if (!activePlot) return null;
     return telemetryObservations.find(o => o.plotId === activePlot.id || o.plotId === activePlot.code) || null;
@@ -48,7 +56,6 @@ export const AIAdvisor: React.FC = () => {
   const handleAskDoctor = (e: React.FormEvent) => {
     e.preventDefault();
     if (!question.trim() || !activePlot) return;
-
     setAnswering(true);
     setTimeout(() => {
       setDoctorAnswer(
@@ -66,42 +73,40 @@ export const AIAdvisor: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 text-slate-800 font-sans pb-10">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <PrototypeModeBanner />
 
-      {/* Top Banner Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-        <div className="flex items-center space-x-3.5">
-          <div className="p-3 rounded-2xl bg-purple-50 text-purple-600 border border-purple-100">
-            <BrainCircuit className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold text-slate-900">AI Agronomic Advisor & Biophysical Diagnostics</h1>
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
-                RULE-BASED ASSESSMENT
-              </span>
+      {/* ── Page Header ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 className="at-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 'var(--radius-lg)',
+              background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <BrainCircuit style={{ width: 18, height: 18, color: '#7c3aed' }} />
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Genotype-aware micro-climate validation & agronomic advice computed from actual plot observations.
-            </p>
-          </div>
+            AI Agronomic Advisor
+          </h1>
+          <p className="at-page-subtitle">
+            Genotype-aware micro-climate validation &amp; agronomic advice from actual plot observations.
+          </p>
         </div>
 
         {/* Plot Selector */}
         {plots.length > 0 && (
-          <div className="bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Plot:</span>
+          <div className="at-farm-selector" style={{ flexShrink: 0 }}>
+            <Sprout style={{ width: 14, height: 14, color: 'var(--color-primary)', flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 500, flexShrink: 0 }}>Plot:</span>
             <select
               value={selectedPlotId}
               onChange={e => setSelectedPlotId(e.target.value)}
-              className="bg-white text-slate-900 text-xs font-bold rounded-lg px-3 py-1 border border-slate-200 outline-none cursor-pointer"
+              aria-label="Select plot"
+              style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               {plots.map(p => {
                 const c = crops.find(crop => crop.id === p.cropId);
-                return (
-                  <option key={p.id} value={p.id}>{p.code}: {c ? c.name : p.name}</option>
-                );
+                return <option key={p.id} value={p.id}>{p.code}: {c ? c.name : p.name}</option>;
               })}
             </select>
           </div>
@@ -109,34 +114,33 @@ export const AIAdvisor: React.FC = () => {
       </div>
 
       {actionSuccess && (
-        <div className="p-4 bg-emerald-950 text-emerald-300 rounded-2xl border border-emerald-800 text-xs font-bold flex items-center space-x-2">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{actionSuccess}</span>
+        <div className="at-alert success">
+          <Check style={{ width: 16, height: 16, flexShrink: 0 }} />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{actionSuccess}</span>
         </div>
       )}
 
       {activePlot ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Current Plot Telemetry Assessment Card */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, alignItems: 'start' }}>
+
+          {/* Left: Current Plot State */}
+          <div className="at-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="at-card-header">
               <div>
-                <span className="text-[10px] font-bold uppercase text-purple-600 tracking-wider">Current Plot State</span>
-                <h3 className="text-lg font-black text-slate-900">{activePlot.code}: {assignedCrop?.name || 'Fallow'}</h3>
+                <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7c3aed' }}>
+                  Current Plot State
+                </span>
+                <div className="at-card-title" style={{ marginTop: 2 }}>
+                  {activePlot.code}: {assignedCrop?.name || 'Fallow'}
+                </div>
               </div>
               <DataSourceBadge source={latestObs?.dataSource || 'MANUAL_PROTOTYPE'} />
             </div>
 
-            {/* MANDATORY SECTION Q REQUIREMENT: ANALYSIS SOURCE BANNER */}
-            <div className={`p-3 rounded-2xl border text-xs font-bold flex items-center space-x-2 ${
-              latestObs?.dataSource === 'SIMULATED'
-                ? 'bg-amber-50 text-amber-900 border-amber-200'
-                : latestObs
-                ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                : 'bg-slate-100 text-slate-600 border-slate-200'
-            }`}>
-              <Info className="w-4 h-4 shrink-0" />
-              <span>Analysis Source: <strong>{analysisSourceLabel}</strong></span>
+            {/* Analysis source banner */}
+            <div className={`at-alert ${latestObs?.dataSource === 'SIMULATED' ? 'warning' : latestObs ? 'success' : 'info'}`} style={{ gap: 8 }}>
+              <Info style={{ width: 14, height: 14, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 600 }}>Source: <strong>{analysisSourceLabel}</strong></span>
             </div>
 
             {latestObs && (
@@ -144,103 +148,156 @@ export const AIAdvisor: React.FC = () => {
             )}
 
             {latestObs ? (
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between p-2.5 bg-slate-50 rounded-xl">
-                  <span className="font-semibold text-slate-500">Soil Moisture:</span>
-                  <span className="font-black text-slate-900">{activePlot.soilMoisture}% (Target: {assignedCrop?.idealMoistureMin || 50}%–{assignedCrop?.idealMoistureMax || 75}%)</span>
-                </div>
-                <div className="flex justify-between p-2.5 bg-slate-50 rounded-xl">
-                  <span className="font-semibold text-slate-500">Air Temperature:</span>
-                  <span className="font-black text-slate-900">{activePlot.airTemp}°C (Target: {assignedCrop?.idealTempMin || 20}°C–{assignedCrop?.idealTempMax || 28}°C)</span>
-                </div>
-                <div className="flex justify-between p-2.5 bg-slate-50 rounded-xl">
-                  <span className="font-semibold text-slate-500">Soil pH:</span>
-                  <span className="font-black text-slate-900">{activePlot.soilPh} (Target: {assignedCrop?.idealPhMin || 6.0}–{assignedCrop?.idealPhMax || 6.8})</span>
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[
+                  { label: 'Soil Moisture', val: `${activePlot.soilMoisture}%`, target: `${assignedCrop?.idealMoistureMin || 50}%–${assignedCrop?.idealMoistureMax || 75}%`, icon: <Droplet style={{ width: 13, height: 13, color: '#0284c7' }} /> },
+                  { label: 'Air Temperature', val: `${activePlot.airTemp}°C`, target: `${assignedCrop?.idealTempMin || 20}°C–${assignedCrop?.idealTempMax || 28}°C`, icon: <Thermometer style={{ width: 13, height: 13, color: '#ef4444' }} /> },
+                  { label: 'Soil pH', val: `${activePlot.soilPh}`, target: `${assignedCrop?.idealPhMin || 6.0}–${assignedCrop?.idealPhMax || 6.8}`, icon: <Activity style={{ width: 13, height: 13, color: '#8b5cf6' }} /> },
+                ].map(({ label, val, target, icon }) => (
+                  <div key={label} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 12px',
+                    background: 'var(--color-surface-muted)',
+                    borderRadius: 'var(--radius-lg)',
+                    fontSize: 12,
+                  }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                      {icon} {label}
+                    </span>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontWeight: 800, color: 'var(--color-text-primary)', fontSize: 13 }}>{val}</span>
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 1 }}>Target: {target}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-500 text-xs font-bold space-y-1">
-                <AlertCircle className="w-6 h-6 mx-auto text-amber-500" />
-                <p>INSUFFICIENT DATA</p>
-                <p className="text-[10px] font-medium text-slate-400">No telemetry observations recorded for this plot yet.</p>
+              <div style={{
+                padding: 24, textAlign: 'center', background: 'var(--color-surface-muted)',
+                borderRadius: 'var(--radius-xl)', border: '1px dashed var(--color-border)',
+              }}>
+                <AlertCircle style={{ width: 24, height: 24, color: 'var(--color-warning)', margin: '0 auto 8px' }} />
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-text-primary)' }}>Insufficient Data</div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4 }}>No telemetry recorded for this plot.</div>
               </div>
             )}
 
-            <div className="pt-2 border-t border-slate-100 flex gap-2">
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: 8, borderTop: '1px solid var(--color-border-muted)', paddingTop: 16 }}>
               <button
                 onClick={() => handleAction('irrigation')}
-                className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center space-x-1"
+                className="at-btn at-btn-primary"
+                style={{ flex: 1, justifyContent: 'center', gap: 6 }}
+                id="at-irrigate-btn"
               >
-                <Droplet className="w-3.5 h-3.5" />
-                <span>Irrigate Plot</span>
+                <Droplet style={{ width: 14, height: 14 }} />
+                Irrigate Plot
               </button>
               <button
                 onClick={() => handleAction('hvac')}
-                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center space-x-1"
+                className="at-btn at-btn-secondary"
+                style={{ flex: 1, justifyContent: 'center', gap: 6 }}
+                id="at-fan-btn"
               >
-                <Wind className="w-3.5 h-3.5" />
-                <span>Toggle Fan</span>
+                <Wind style={{ width: 14, height: 14 }} />
+                Toggle Fan
               </button>
             </div>
           </div>
 
-          {/* AI Agronomic Query & Diagnostics Console */}
-          <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center space-x-2 border-b border-slate-100 pb-3 mb-4">
-                <Bot className="w-5 h-5 text-purple-600" />
-                <h3 className="text-base font-bold text-slate-900">Ask Agronomic AI Assistant</h3>
+          {/* Right: AI Query Console */}
+          <div className="at-card" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div className="at-card-header">
+              <div className="at-card-title">
+                <Bot style={{ width: 16, height: 16, color: '#7c3aed' }} />
+                Ask the Agronomic AI Assistant
               </div>
-
-              <form onSubmit={handleAskDoctor} className="space-y-3">
-                <textarea
-                  rows={3}
-                  value={question}
-                  onChange={e => setQuestion(e.target.value)}
-                  placeholder={`Ask a question about ${activePlot.code} (${assignedCrop?.name || 'Crop'}). e.g. "What is the recommended irrigation schedule for current moisture levels?"`}
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 outline-none focus:border-purple-500 transition-all resize-none"
-                />
-
-                <button
-                  type="submit"
-                  disabled={answering || !question.trim()}
-                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 shadow-md shadow-purple-600/20"
-                >
-                  <SendIcon className="w-3.5 h-3.5" />
-                  <span>{answering ? 'Analyzing Observations...' : 'Submit Query'}</span>
-                </button>
-              </form>
-
-              {doctorAnswer && (
-                <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-2xl text-xs text-purple-950 font-medium animate-fadeIn space-y-2">
-                  <div className="flex items-center space-x-1.5 text-purple-800 font-bold">
-                    <Sparkles className="w-4 h-4 text-purple-600" />
-                    <span>AI Agronomic Guidance (Rule-Based Assessment):</span>
-                  </div>
-                  <p className="leading-relaxed">{doctorAnswer}</p>
-                </div>
-              )}
+              <span className="at-badge neutral" style={{ fontSize: 10 }}>Rule-Based Assessment</span>
             </div>
 
-            <div className="p-3 bg-slate-100 rounded-xl text-[11px] text-slate-500 font-semibold">
-              Note: Diagnostics are driven by authoritative observations in AgriStore and agronomic thresholds.
+            <form onSubmit={handleAskDoctor} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label className="at-label" htmlFor="at-ai-question">Your Question</label>
+                <textarea
+                  id="at-ai-question"
+                  rows={4}
+                  value={question}
+                  onChange={e => setQuestion(e.target.value)}
+                  placeholder={`Ask about ${activePlot.code} (${assignedCrop?.name || 'Crop'}). e.g. "What is the recommended irrigation schedule for current moisture levels?"`}
+                  className="at-input"
+                  style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <button
+                id="at-ai-submit-btn"
+                type="submit"
+                disabled={answering || !question.trim()}
+                className="at-btn at-btn-primary"
+                style={{
+                  alignSelf: 'flex-start',
+                  background: '#7c3aed',
+                  borderColor: '#6d28d9',
+                  boxShadow: '0 4px 14px rgb(124 58 237 / 0.2)',
+                  gap: 7,
+                }}
+              >
+                <SendIcon style={{ width: 14, height: 14 }} />
+                {answering ? 'Analyzing Observations...' : 'Submit Query'}
+              </button>
+            </form>
+
+            {doctorAnswer && (
+              <div style={{
+                padding: '16px 18px',
+                background: '#f5f3ff',
+                border: '1px solid #ddd6fe',
+                borderRadius: 'var(--radius-xl)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: '#7c3aed', fontWeight: 700, fontSize: 13 }}>
+                  <Sparkles style={{ width: 15, height: 15 }} />
+                  AI Agronomic Guidance
+                </div>
+                <p style={{ fontSize: 13, color: '#4c1d95', lineHeight: 1.7 }}>{doctorAnswer}</p>
+              </div>
+            )}
+
+            <div style={{
+              marginTop: 'auto',
+              padding: '12px 14px',
+              background: 'var(--color-surface-muted)',
+              borderRadius: 'var(--radius-lg)',
+              fontSize: 11,
+              color: 'var(--color-text-muted)',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 6,
+            }}>
+              <Info style={{ width: 13, height: 13, flexShrink: 0, marginTop: 1 }} />
+              Diagnostics are driven by authoritative observations in AgriStore and agronomic thresholds. Results are rule-based, not machine learning.
             </div>
           </div>
         </div>
       ) : (
-        <div className="p-8 text-center bg-white rounded-3xl border border-slate-200 text-slate-500 text-xs font-bold">
-          No plots created yet. Please create a farm and plots to use AI Advisor.
+        <div className="at-card">
+          <div className="at-empty">
+            <div className="at-empty-icon">
+              <BrainCircuit style={{ width: 28, height: 28, color: 'var(--color-text-muted)' }} />
+            </div>
+            <div className="at-empty-title">No Plots Available</div>
+            <div className="at-empty-text">
+              Create a farm and add plots to use the AI Agronomic Advisor.
+            </div>
+          </div>
         </div>
       )}
+
+      <style>{`@media (max-width: 900px) { .at-advisor-grid { grid-template-columns: 1fr !important; } }`}</style>
     </div>
   );
 };
-
-// Helper send icon component
-const SendIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-  </svg>
-);
 
 export default AIAdvisor;

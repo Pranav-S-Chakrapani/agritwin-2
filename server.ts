@@ -9,7 +9,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5173;
 
   // JSON payload parser
   app.use(express.json({ limit: "20mb" }));

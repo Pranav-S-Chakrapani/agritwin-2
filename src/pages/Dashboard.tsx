@@ -19,7 +19,22 @@ import {
   HeartPulse,
   Bell,
   Radio,
-  Wind
+  Wind,
+  ArrowRight,
+  TrendingUp,
+  TrendingDown,
+  Layers,
+  Sun,
+  CloudRain,
+  Compass,
+  Crosshair,
+  Plus,
+  Minus,
+  CheckSquare,
+  Square,
+  Clock,
+  Sparkles,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -33,38 +48,75 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid
+  CartesianGrid,
+  Area,
+  AreaChart,
 } from 'recharts';
 
 import { SupabaseMonitorSection } from '../components/dashboard/SupabaseMonitorSection';
 import { useAgriStore } from '../context/AgriStore';
-import { PlotService, SensorService, CropService } from '../services/canonicalServices';
+import { PlotService, SensorService } from '../services/canonicalServices';
 import { formatTemperature, formatMoisture, formatHumidity, formatPh } from '../lib/formatters';
 
-const COLORS = ['#10B981', '#0284C7', '#8B5CF6', '#D97706', '#EC4899', '#14B8A6'];
+const CHART_COLORS = ['#16a34a', '#0284c7', '#d97706', '#8b5cf6', '#0d9488', '#ec4899'];
 
-function getHealthBadge(score: number) {
-  if (score >= 80) return { label: 'Good', bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', dot: 'bg-emerald-500' };
-  if (score >= 60) return { label: 'Warning', bg: 'bg-amber-100 text-amber-800 border-amber-300', dot: 'bg-amber-500' };
-  return { label: 'Attention Required', bg: 'bg-rose-100 text-rose-800 border-rose-300', dot: 'bg-rose-500' };
-}
+// Sensor Trends 24-hour Data
+const SENSOR_TRENDS_24H = [
+  { time: '12 AM', value: 38 },
+  { time: '2 AM', value: 42 },
+  { time: '4 AM', value: 46 },
+  { time: '6 AM', value: 44 },
+  { time: '8 AM', value: 48 },
+  { time: '10 AM', value: 45 },
+  { time: '10:30 AM', value: 21, isDip: true },
+  { time: '12 PM', value: 28 },
+  { time: '2 PM', value: 32 },
+  { time: '4 PM', value: 27 },
+  { time: '6 PM', value: 29 },
+  { time: '8 PM', value: 31 },
+  { time: '10 PM', value: 35 },
+];
 
-function getMoistureBadge(val: number) {
-  if (val >= 45 && val <= 75) return { label: 'Optimal', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
-  if (val < 35 || val > 85) return { label: 'Attention', color: 'text-rose-700 bg-rose-50 border-rose-200' };
-  return { label: 'Watch', color: 'text-amber-700 bg-amber-50 border-amber-200' };
-}
+const SENSOR_TRENDS_7D = [
+  { time: 'Mon', value: 42 },
+  { time: 'Tue', value: 45 },
+  { time: 'Wed', value: 38 },
+  { time: 'Thu', value: 30 },
+  { time: 'Fri', value: 46 },
+  { time: 'Sat', value: 48 },
+  { time: 'Sun', value: 44 },
+];
 
-function getTempBadge(val: number) {
-  if (val >= 20 && val <= 30) return { label: 'Good', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
-  if (val > 35 || val < 15) return { label: 'Warning', color: 'text-rose-700 bg-rose-50 border-rose-200' };
-  return { label: 'Moderate', color: 'text-amber-700 bg-amber-50 border-amber-200' };
-}
+const SENSOR_TRENDS_30D = [
+  { time: 'Week 1', value: 45 },
+  { time: 'Week 2', value: 40 },
+  { time: 'Week 3', value: 36 },
+  { time: 'Week 4', value: 48 },
+];
 
-function getPhBadge(val: number) {
-  if (val >= 6.0 && val <= 7.5) return { label: 'Balanced', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
-  return { label: 'Check pH', color: 'text-amber-700 bg-amber-50 border-amber-200' };
-}
+// Custom tooltip for recharts
+const ChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: 'var(--color-surface)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius-lg)',
+      padding: '8px 12px',
+      boxShadow: 'var(--shadow-md)',
+      fontSize: 12,
+      fontFamily: 'Inter, sans-serif',
+    }}>
+      {label && <div style={{ fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>}
+      {payload.map((p: any, i: number) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, color: p.color || 'var(--color-primary)', fontWeight: 600 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color || 'var(--color-primary)', flexShrink: 0 }} />
+          <span>{p.name || 'Moisture'}: <strong>{p.value}%</strong></span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export const Dashboard: React.FC = () => {
   const {
@@ -78,24 +130,34 @@ export const Dashboard: React.FC = () => {
     seedMultiFarmSystem,
   } = useAgriStore();
 
+  const [seeding, setSeeding] = useState(false);
+  const [seedNotice, setSeedNotice] = useState<string | null>(null);
+  const [trendRange, setTrendRange] = useState<'24h' | '7d' | '30d'>('24h');
+  const [selectedMetric, setSelectedMetric] = useState('Soil Moisture');
+  const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>({
+    Terrain: false,
+    Crops: true,
+    'Soil Moisture': false,
+    'Soil pH': false,
+    Temperature: false,
+    'NDVI (Crop Health)': true,
+    Irrigation: false,
+    'Erosion Risk': false,
+  });
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [digitalTwinView, setDigitalTwinView] = useState('Crop Health');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedFarms, setExpandedFarms] = useState<Record<string, boolean>>({
     farm_iiit_dharwad: true,
-    farm_smart_demo: false,
-    farm_precision_center: false,
-    farm_organic_research: false,
-    farm_digital_twin: false
   });
-  const [seeding, setSeeding] = useState(false);
-  const [seedNotice, setSeedNotice] = useState<string | null>(null);
 
-  const handleToggleFarm = (farmId: string) => {
-    setExpandedFarms(prev => ({ ...prev, [farmId]: !prev[farmId] }));
+  const handleToggleLayer = (layer: string) => {
+    setActiveLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
   };
 
   const handleRunSeeder = async () => {
     setSeeding(true);
-    setSeedNotice('Seeding 5 Farms, 25 Plots, 150 Sensors, 1000 Field Sensor Records to Supabase...');
+    setSeedNotice('Seeding 5 Farms, 25 Plots, 150 Sensors...');
     try {
       const res = await seedMultiFarmSystem();
       setSeedNotice(res.message);
@@ -106,527 +168,1033 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const activeFarmPlots = useMemo(() => {
-    return PlotService.getPlotsForFarm(plots, activeFarmland?.id);
-  }, [plots, activeFarmland]);
+  const trendData = useMemo(() => {
+    if (trendRange === '7d') return SENSOR_TRENDS_7D;
+    if (trendRange === '30d') return SENSOR_TRENDS_30D;
+    return SENSOR_TRENDS_24H;
+  }, [trendRange]);
 
-  const activeFarmSensorCounts = useMemo(() => {
-    return SensorService.getSensorCountsForFarm(sensors, activeFarmland?.id);
-  }, [sensors, activeFarmland]);
-
-  const globalSensorCounts = useMemo(() => {
-    return SensorService.getGlobalSensorCounts(sensors);
-  }, [sensors]);
-
-  const activeSensorsCount = activeFarmSensorCounts.active;
-  const offlineSensorsCount = activeFarmSensorCounts.offline;
+  const activeFarmPlots = useMemo(() => PlotService.getPlotsForFarm(plots, activeFarmland?.id), [plots, activeFarmland]);
+  const activeFarmSensorCounts = useMemo(() => SensorService.getSensorCountsForFarm(sensors, activeFarmland?.id), [sensors, activeFarmland]);
+  const globalSensorCounts = useMemo(() => SensorService.getGlobalSensorCounts(sensors), [sensors]);
   const activeAlertsCount = useMemo(() => alerts.filter(a => a.status === 'active').length, [alerts]);
-  const filteredFarms = useMemo(() => {
-    if (!searchTerm.trim()) return farmlands;
-    const term = searchTerm.toLowerCase();
-    return farmlands.filter(farm => {
-      const matchesFarm = farm.name.toLowerCase().includes(term) || farm.location.toLowerCase().includes(term);
-      const farmPlots = PlotService.getPlotsForFarm(plots, farm.id);
-      const matchesPlot = farmPlots.some(p => p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term) || (p.cropType || '').toLowerCase().includes(term));
-      const farmSensors = SensorService.getSensorsForFarm(sensors, farm.id);
-      const matchesSensor = farmSensors.some(s => s.nodeName.toLowerCase().includes(term) || (s.type || '').toLowerCase().includes(term) || (s.sensorCode || '').toLowerCase().includes(term));
-      return matchesFarm || matchesPlot || matchesSensor;
-    });
-  }, [farmlands, plots, sensors, searchTerm]);
+  const criticalAlertsCount = useMemo(() => alerts.filter(a => a.status === 'active' && a.severity === 'critical').length, [alerts]);
 
-  const telemetryPerFarmData = useMemo(() => {
-    return farmlands.map(f => {
-      const count = telemetryObservations.filter(o => o.farmId === f.id).length;
-      return { name: f.name.replace(' Research Farm', '').replace(' Agriculture', ''), records: count || 200 };
-    });
-  }, [farmlands, telemetryObservations]);
+  const telemetryPerFarmData = useMemo(() =>
+    farmlands.map(f => ({
+      name: f.name.split(' ')[0],
+      records: telemetryObservations.filter(o => o.farmId === f.id).length || 200,
+    })), [farmlands, telemetryObservations]);
 
-  const sensorDistData = useMemo(() => {
-    return farmlands.map(f => {
+  const sensorDistData = useMemo(() =>
+    farmlands.map(f => {
       const counts = SensorService.getSensorCountsForFarm(sensors, f.id);
       return { name: f.name.split(' ')[0], total: counts.total || 30, online: counts.active || 29 };
-    });
-  }, [farmlands, sensors]);
+    }), [farmlands, sensors]);
 
   const cropDistData = useMemo(() => {
     const map: Record<string, number> = {};
-    plots.forEach(p => {
-      const crop = p.cropType || 'Wheat';
-      map[crop] = (map[crop] || 0) + 1;
-    });
+    plots.forEach(p => { const crop = p.cropType || 'Wheat'; map[crop] = (map[crop] || 0) + 1; });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [plots]);
 
-  const moistureCompareData = useMemo(() => {
-    return farmlands.map(f => {
+  const moistureCompareData = useMemo(() =>
+    farmlands.map(f => {
       const fPlots = plots.filter(p => p.farmId === f.id);
       const avgM = fPlots.length > 0 ? fPlots.reduce((acc, p) => acc + p.soilMoisture, 0) / fPlots.length : 48;
       return { name: f.name.split(' ')[0], avgMoisture: Number(avgM.toFixed(1)) };
-    });
-  }, [farmlands, plots]);
+    }), [farmlands, plots]);
 
-  const tempTrendData = useMemo(() => {
-    const hours = ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '00:00'];
-    return hours.map((time, idx) => ({
-      time,
-      Dharwad: Number((22 + Math.sin((idx / 6) * Math.PI) * 6).toFixed(1)),
-      DemoFarm: Number((20 + Math.sin((idx / 6) * Math.PI) * 5.5).toFixed(1)),
-      Precision: Number((24 + Math.sin((idx / 6) * Math.PI) * 7).toFixed(1)),
-      Organic: Number((21 + Math.sin((idx / 6) * Math.PI) * 5).toFixed(1)),
-      DigitalTwin: Number((23 + Math.sin((idx / 6) * Math.PI) * 6.5).toFixed(1))
-    }));
-  }, []);
-
-  const farmHealthData = useMemo(() => {
-    return farmlands.map(f => ({
-      name: f.name.split(' ')[0],
-      healthScore: f.healthScore || 90
-    }));
-  }, [farmlands]);
   return (
-    <div className="space-y-6 font-sans text-slate-800">
-      {/* Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white rounded-3xl p-6 shadow-xl border border-emerald-900/60 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* ── Page Title Header with Reference Quote ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-            <span className="bg-emerald-500/20 text-emerald-300 text-[11px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-emerald-500/30 flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-              AgriTwin Crop Digital Twin System
-            </span>
-            <span className="bg-indigo-500/20 text-indigo-300 text-[11px] font-bold px-2 py-0.5 rounded border border-indigo-500/30">
-              Live Farm Status: Connected
-            </span>
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-black mt-2 tracking-tight">Farm Overview Dashboard</h1>
-          <p className="text-xs text-slate-300 mt-1 max-w-3xl">
-            Real-time digital twin monitoring for <strong>{activeFarmland?.name || 'All Farms'}</strong>. Live field sensor data updates automatically every 10 seconds.
+          <h1 className="at-page-title" style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+            Dashboard
+          </h1>
+          <p className="at-page-subtitle" style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+            Real-time insights from your farm's digital twin
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div
+            className="at-hide-mobile"
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--color-primary-text)',
+              fontStyle: 'normal',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            "Data Today. Better Harvests Tomorrow."
+          </div>
           <button
             onClick={handleRunSeeder}
             disabled={seeding}
-            className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+            className="at-btn at-btn-primary at-btn-sm"
+            id="at-seed-btn"
+            style={{ padding: '6px 14px' }}
           >
-            {seeding ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 fill-slate-950" />}
-            Reset / Seed Demo Data
+            {seeding
+              ? <RefreshCw style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} />
+              : <Zap style={{ width: 13, height: 13 }} />
+            }
+            {seeding ? 'Seeding...' : 'Load Demo Data'}
           </button>
         </div>
       </div>
 
       {seedNotice && (
-        <div className="bg-emerald-950/90 text-emerald-200 border border-emerald-800 rounded-2xl p-4 text-xs font-bold flex items-center justify-between shadow-md">
-          <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{seedNotice}</span>
-          </div>
-          <button onClick={() => setSeedNotice(null)} className="text-emerald-400 hover:text-white font-mono text-[10px] cursor-pointer">Dismiss</button>
+        <div className="at-alert success" style={{ alignItems: 'center', padding: '10px 16px' }}>
+          <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0 }} />
+          <span style={{ flex: 1, fontSize: 13 }}>{seedNotice}</span>
+          <button
+            onClick={() => setSeedNotice(null)}
+            className="at-btn at-btn-ghost at-btn-sm"
+            style={{ padding: '2px 8px', fontSize: 12 }}
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* 1. Farm Summary Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Active Farm Plots</span>
-            <Sprout className="w-4 h-4 text-emerald-600" />
+      {/* ── TOP KPI ROW: Farm Health Score + 4 Dimensions (Matching Reference) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) repeat(4, 1fr)', gap: 14 }}>
+        
+        {/* Farm Health Score Gauge Card */}
+        <div
+          className="at-card"
+          style={{
+            background: 'var(--color-surface)',
+            padding: '16px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+            Farm Health Score
           </div>
-          <div className="text-2xl font-black text-slate-900 mt-1">{activeFarmPlots.length}</div>
-          <div className="text-[10px] text-emerald-600 font-bold mt-0.5">{plots.length} System Total</div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Active Farm Sensors</span>
-            <Cpu className="w-4 h-4 text-indigo-600" />
-          </div>
-          <div className="text-2xl font-black text-slate-900 mt-1">{activeFarmSensorCounts.total}</div>
-          <div className="text-[10px] text-indigo-600 font-bold mt-0.5">{globalSensorCounts.total} System Total</div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Online Sensors</span>
-            <Radio className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div className="text-2xl font-black text-emerald-600 mt-1">{activeSensorsCount}</div>
-          <div className="text-[10px] text-emerald-600 font-bold mt-0.5">Live Broadcasting</div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Offline Sensors</span>
-            <Radio className="w-4 h-4 text-rose-500" />
-          </div>
-          <div className={`text-2xl font-black mt-1 ${offlineSensorsCount > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-            {offlineSensorsCount}
-          </div>
-          <div className="text-[10px] text-slate-500 font-bold mt-0.5">{offlineSensorsCount === 0 ? 'All Online' : 'Check Connectivity'}</div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Total Alerts</span>
-            <Bell className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className={`text-2xl font-black mt-1 ${activeAlertsCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-            {activeAlertsCount}
-          </div>
-          <div className="text-[10px] text-slate-500 font-bold mt-0.5">
-            <Link to="/alerts" className="text-amber-600 hover:underline font-bold">View Active &rarr;</Link>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Total Farmlands</span>
-            <Building2 className="w-4 h-4 text-sky-600" />
-          </div>
-          <div className="text-2xl font-black text-slate-900 mt-1">{farmlands.length}</div>
-          <div className="text-[10px] text-sky-600 font-bold mt-0.5">Connected Sites</div>
-        </div>
-      </div>
-      {/* 2. Live Field Health */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
-          <div>
-            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <HeartPulse className="w-5 h-5 text-emerald-600" />
-              Live Field Health &mdash; {activeFarmland?.name || 'Active Farm'}
-            </h2>
-            <p className="text-xs text-slate-500">Live measurements across all plots. Green = Good, Yellow = Warning, Red = Attention Required.</p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Good
-            </span>
-            <span className="flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-              <span className="w-2 h-2 rounded-full bg-amber-500" /> Warning
-            </span>
-            <span className="flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
-              <span className="w-2 h-2 rounded-full bg-rose-500" /> Attention Required
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {activeSections.map((plot) => {
-            const healthBadge = getHealthBadge(plot.soilHealthScore || 85);
-            const moistureBadge = getMoistureBadge(plot.soilMoisture);
-            const tempBadge = getTempBadge(plot.airTemp);
-            const phBadge = getPhBadge(plot.soilPh);
-            const humidity = plot.humidity ?? 62;
-
-            return (
-              <div key={plot.id} className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 hover:bg-white transition-all shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 bg-emerald-600 text-white font-mono text-[10px] font-black rounded">
-                        {plot.code}
-                      </span>
-                      <span className="font-extrabold text-sm text-slate-900">{plot.name}</span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      {plot.cropType || 'Crop'} &middot; {plot.growthStage || 'Vegetative'}
-                    </div>
-                  </div>
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border flex items-center gap-1 ${healthBadge.bg}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${healthBadge.dot}`} />
-                    Score {plot.soilHealthScore || 85}%
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
-                      <span className="flex items-center gap-1"><Droplets className="w-3 h-3 text-blue-500" /> Soil Moisture</span>
-                    </div>
-                    <div className="text-base font-black text-slate-900 mt-1">{formatMoisture(plot.soilMoisture)}</div>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${moistureBadge.color}`}>
-                      {moistureBadge.label}
-                    </span>
-                  </div>
-
-                  <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
-                      <span className="flex items-center gap-1"><Thermometer className="w-3 h-3 text-rose-500" /> Temperature</span>
-                    </div>
-                    <div className="text-base font-black text-slate-900 mt-1">{formatTemperature(plot.airTemp)}</div>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${tempBadge.color}`}>
-                      {tempBadge.label}
-                    </span>
-                  </div>
-
-                  <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
-                      <span className="flex items-center gap-1"><Wind className="w-3 h-3 text-teal-500" /> Humidity</span>
-                    </div>
-                    <div className="text-base font-black text-slate-900 mt-1">{formatHumidity(humidity)}</div>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border text-teal-700 bg-teal-50 border-teal-200 inline-block mt-0.5">
-                      Ambient
-                    </span>
-                  </div>
-
-                  <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
-                      <span className="flex items-center gap-1"><Activity className="w-3 h-3 text-purple-500" /> Soil pH</span>
-                    </div>
-                    <div className="text-base font-black text-slate-900 mt-1">{formatPh(plot.soilPh)}</div>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border inline-block mt-0.5 ${phBadge.color}`}>
-                      {phBadge.label}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] border-t border-slate-100 pt-2 text-slate-500">
-                  <span>Unit: <strong className="text-slate-800">{plot.sensorNodeId}</strong></span>
-                  <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
-                    {plot.irrigationStatus || 'Scheduled'}
-                  </span>
-                </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '8px 0' }}>
+            {/* Circular progress SVG */}
+            <div style={{ position: 'relative', width: 72, height: 72, flexShrink: 0 }}>
+              <svg width="72" height="72" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+                <path
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke="#e2e8f0"
+                  strokeWidth="3.2"
+                />
+                <path
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke="var(--color-primary)"
+                  strokeWidth="3.2"
+                  strokeDasharray="82, 100"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  lineHeight: 1,
+                }}
+              >
+                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-text-primary)' }}>82</span>
+                <span style={{ fontSize: 9, color: 'var(--color-text-muted)', marginTop: 2 }}>/ 100</span>
               </div>
-            );
-          })}
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-primary)', fontWeight: 700, fontSize: 13 }}>
+                <Sprout style={{ width: 14, height: 14 }} />
+                Good
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4, lineHeight: 1.3 }}>
+                Overall condition of your farm is healthy.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Soil Dimension Card */}
+        <div className="at-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 14 }}>🪵</span>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Soil</span>
+          </div>
+          <div style={{ margin: '8px 0 4px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-primary)' }}>86</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>/ 100</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-primary)', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)' }} />
+              Good
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
+            Soil conditions are optimal.
+          </div>
+        </div>
+
+        {/* Water Dimension Card */}
+        <div className="at-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Droplets style={{ width: 14, height: 14, color: '#0284c7' }} />
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Water</span>
+          </div>
+          <div style={{ margin: '8px 0 4px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-primary)' }}>74</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>/ 100</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-warning)', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
+              <span>◆</span> Moderate
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
+            Irrigation attention needed in some zones.
+          </div>
+        </div>
+
+        {/* Climate Dimension Card */}
+        <div className="at-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sun style={{ width: 14, height: 14, color: '#d97706' }} />
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Climate</span>
+          </div>
+          <div style={{ margin: '8px 0 4px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-primary)' }}>88</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>/ 100</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-primary)', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)' }} />
+              Good
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
+            Temperature and humidity are within ideal range.
+          </div>
+        </div>
+
+        {/* Crop Dimension Card */}
+        <div className="at-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sprout style={{ width: 14, height: 14, color: 'var(--color-primary)' }} />
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Crop</span>
+          </div>
+          <div style={{ margin: '8px 0 4px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-primary)' }}>81</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>/ 100</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-primary)', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)' }} />
+              Good
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
+            Crops are growing well with no major stress.
+          </div>
         </div>
       </div>
-      {/* 3. Multi-Farm Hierarchy Explorer */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div>
-            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-emerald-600" />
-              Multi-Farm Hierarchy Explorer
-            </h2>
-            <p className="text-xs text-slate-500">Relational farm tree: Farm &rarr; Plots &rarr; Sensor Unit Network</p>
+
+      {/* ── MIDDLE ROW: Farm Digital Twin Map + Alerts & Notifications (Matching Reference) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(320px, 1fr)', gap: 16, alignItems: 'start' }}>
+        
+        {/* Farm Digital Twin Card */}
+        <div className="at-card" style={{ padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                <Building2 style={{ width: 18, height: 18, color: 'var(--color-primary)' }} />
+                Farm Digital Twin
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                Interactive view of your farm with real-time data layers
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 500 }}>View:</span>
+              <select
+                value={digitalTwinView}
+                onChange={(e) => setDigitalTwinView(e.target.value)}
+                className="at-input at-select"
+                style={{ height: 32, fontSize: 12, padding: '2px 28px 2px 10px', width: 'auto', fontWeight: 600 }}
+              >
+                <option value="Crop Health">Crop Health</option>
+                <option value="Soil Moisture">Soil Moisture</option>
+                <option value="Irrigation Nodes">Irrigation Nodes</option>
+                <option value="NDVI Scan">NDVI Scan</option>
+              </select>
+            </div>
           </div>
 
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search Farm, Plot, or Sensor Unit..."
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800"
-            />
-          </div>
-        </div>
+          {/* Interactive Map Visual + Layer Controls */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 14 }}>
+            
+            {/* Satellite Farm View with Zone Polygons */}
+            <div
+              style={{
+                position: 'relative',
+                height: 280,
+                borderRadius: 'var(--radius-xl)',
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg, #1b3a24 0%, #294d30 50%, #3a633f 100%)',
+                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.15)',
+              }}
+            >
+              {/* Satellite Background Grid Pattern */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundImage: `
+                    radial-gradient(circle at 30% 40%, rgba(74, 222, 128, 0.15) 0%, transparent 45%),
+                    radial-gradient(circle at 70% 70%, rgba(251, 191, 36, 0.15) 0%, transparent 40%),
+                    radial-gradient(circle at 20% 80%, rgba(248, 113, 113, 0.2) 0%, transparent 35%),
+                    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)
+                  `,
+                  backgroundSize: '100% 100%, 100% 100%, 100% 100%, 20px 20px, 20px 20px',
+                }}
+              />
 
-        <div className="space-y-3">
-          {filteredFarms.map((farm) => {
-            const isExpanded = Boolean(expandedFarms[farm.id]);
-            const farmPlots = PlotService.getPlotsForFarm(plots, farm.id);
-            const farmSensors = SensorService.getSensorsForFarm(sensors, farm.id);
-            const sensorCounts = SensorService.getSensorCountsForFarm(sensors, farm.id);
-            const onlineSensors = sensorCounts.active;
-
-            return (
-              <div key={farm.id} className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white">
+              {/* Farm Zone Polygons */}
+              <div style={{ position: 'absolute', inset: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 10 }}>
+                
+                {/* Zone 1: Good (Green) */}
                 <div
-                  onClick={() => handleToggleFarm(farm.id)}
-                  className="p-4 bg-slate-50/80 hover:bg-slate-100/80 transition-colors flex items-center justify-between cursor-pointer border-b border-slate-100"
+                  onClick={() => setSelectedZone('Zone 1')}
+                  style={{
+                    borderRadius: 'var(--radius-lg)',
+                    border: '2px dashed rgba(74, 222, 128, 0.9)',
+                    background: 'rgba(34, 197, 94, 0.25)',
+                    backdropFilter: 'blur(2px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    padding: 8,
+                  }}
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700 font-black">
-                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-extrabold text-sm text-slate-900">{farm.name}</h3>
-                        <span className="text-[10px] font-bold text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400" /> {farm.location}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500 flex-wrap">
-                        <span>Total Area: <strong className="text-slate-800">{farm.totalArea} {farm.unit}</strong></span>
-                        <span>&middot;</span>
-                        <span>Plots: <strong className="text-emerald-700">{farmPlots.length} Plots</strong></span>
-                        <span>&middot;</span>
-                        <span>Sensor Units: <strong className="text-indigo-700">{farmSensors.length} ({onlineSensors} Online)</strong></span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <span className="text-xs font-black px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full border border-emerald-200 flex items-center gap-1">
-                    <HeartPulse className="w-3.5 h-3.5 text-emerald-600" /> Health {farm.healthScore || 92}/100
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                    Zone 1
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#4ade80', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>
+                    Good
                   </span>
                 </div>
 
-                {isExpanded && (
-                  <div className="p-4 bg-slate-50/30 space-y-3">
-                    {farmPlots.map((plot) => {
-                      const plotSensors = sensors.filter(s => s.plotId === plot.id);
+                {/* Zone 2: Attention (Amber) */}
+                <div
+                  onClick={() => setSelectedZone('Zone 2')}
+                  style={{
+                    borderRadius: 'var(--radius-lg)',
+                    border: '2px dashed rgba(251, 191, 36, 0.9)',
+                    background: 'rgba(245, 158, 11, 0.28)',
+                    backdropFilter: 'blur(2px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    padding: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                    Zone 2
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>
+                    Attention
+                  </span>
+                </div>
 
-                      return (
-                        <div key={plot.id} className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-2xs space-y-2">
-                          <div className="flex items-center justify-between border-b border-slate-100 pb-2 flex-wrap gap-2">
-                            <div className="flex items-center space-x-2">
-                              <span className="px-2 py-0.5 bg-emerald-600 text-white font-mono text-[10px] font-bold rounded">
-                                {plot.code}
-                              </span>
-                              <span className="font-extrabold text-xs text-slate-900">{plot.name}</span>
-                              <span className="text-[10px] text-slate-400">({plot.area} ac)</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] flex-wrap">
-                              <span className="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded border border-emerald-100">
-                                {plot.cropType || 'Wheat'} ({plot.growthStage || 'Vegetative'})
-                              </span>
-                              <span className="bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded border border-indigo-100">
-                                Soil Score: {plot.soilHealthScore || 90}/100
-                              </span>
-                              <span className="bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded border border-amber-100">
-                                Irrigation: {plot.irrigationStatus || 'Active Drip'}
-                              </span>
-                            </div>
-                          </div>
+                {/* Zone 3: Critical (Red) */}
+                <div
+                  onClick={() => setSelectedZone('Zone 3')}
+                  style={{
+                    borderRadius: 'var(--radius-lg)',
+                    border: '2px dashed rgba(248, 113, 113, 0.95)',
+                    background: 'rgba(239, 68, 68, 0.32)',
+                    backdropFilter: 'blur(2px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    padding: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                    Zone 3
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#f87171', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>
+                    Critical
+                  </span>
+                </div>
 
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
-                            {plotSensors.map((s) => (
-                              <div key={s.id} className="p-2 bg-slate-50 rounded-lg border border-slate-200 text-[10px] space-y-1">
-                                <div className="flex items-center justify-between font-mono font-bold text-slate-700">
-                                  <span>{s.sensorCode || s.id}</span>
-                                  <span className={`w-2 h-2 rounded-full ${s.status === 'Online' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                                </div>
-                                <div className="text-slate-500 truncate text-[9px]">{s.type}</div>
-                                <div className="flex items-center justify-between pt-1">
-                                  <span className="font-black text-slate-900">{s.currentReading || '42%'}</span>
-                                  <span className="text-slate-400 text-[9px]">??{s.batteryPct}%</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Zone 4: Good (Green) */}
+                <div
+                  onClick={() => setSelectedZone('Zone 4')}
+                  style={{
+                    borderRadius: 'var(--radius-lg)',
+                    border: '2px dashed rgba(74, 222, 128, 0.9)',
+                    background: 'rgba(34, 197, 94, 0.25)',
+                    backdropFilter: 'blur(2px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    padding: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                    Zone 4
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#4ade80', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>
+                    Good
+                  </span>
+                </div>
               </div>
-            );
-          })}
+
+              {/* Map Zoom Controls on Right Bottom */}
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 10,
+                  bottom: 10,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  backdropFilter: 'blur(4px)',
+                  padding: 4,
+                  borderRadius: 6,
+                }}
+              >
+                <button className="at-btn-icon" style={{ width: 22, height: 22, border: 'none', color: 'white', background: 'transparent' }} title="Zoom in">
+                  <Plus style={{ width: 12, height: 12 }} />
+                </button>
+                <button className="at-btn-icon" style={{ width: 22, height: 22, border: 'none', color: 'white', background: 'transparent' }} title="Zoom out">
+                  <Minus style={{ width: 12, height: 12 }} />
+                </button>
+                <button className="at-btn-icon" style={{ width: 22, height: 22, border: 'none', color: 'white', background: 'transparent' }} title="Center">
+                  <Crosshair style={{ width: 12, height: 12 }} />
+                </button>
+              </div>
+            </div>
+
+            {/* Layer Checkboxes List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}>
+              {[
+                'Terrain',
+                'Crops',
+                'Soil Moisture',
+                'Soil pH',
+                'Temperature',
+                'NDVI (Crop Health)',
+                'Irrigation',
+                'Erosion Risk',
+              ].map((layer) => {
+                const checked = Boolean(activeLayers[layer]);
+                return (
+                  <label
+                    key={layer}
+                    onClick={() => handleToggleLayer(layer)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      cursor: 'pointer',
+                      color: checked ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                      fontWeight: checked ? 600 : 400,
+                      userSelect: 'none',
+                    }}
+                  >
+                    {checked ? (
+                      <CheckSquare style={{ width: 13, height: 13, color: 'var(--color-primary)', flexShrink: 0 }} />
+                    ) : (
+                      <Square style={{ width: 13, height: 13, color: 'var(--color-border-strong)', flexShrink: 0 }} />
+                    )}
+                    <span style={{ lineHeight: 1.2 }}>{layer}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Map Legend */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, fontSize: 11, color: 'var(--color-text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-success)' }} />
+              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>Normal</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-warning)' }} />
+              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>Attention</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-danger)' }} />
+              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>Critical</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Alerts & Notifications Card (Matching Reference) */}
+        <div className="at-card" style={{ padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+              <Bell style={{ width: 17, height: 17, color: 'var(--color-text-primary)' }} />
+              Alerts & Notifications
+            </div>
+            <Link to="/alerts" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+              View All
+            </Link>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            
+            {/* Alert 1: Low Soil Moisture (Critical - Red) */}
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-lg)',
+                background: '#fef2f2',
+                border: '1px solid #fee2e2',
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+              }}
+            >
+              <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Droplets style={{ width: 13, height: 13, color: '#dc2626' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#b91c1c' }}>
+                    Low soil moisture detected
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>1 hour ago</span>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>
+                  Zone 3
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1 }}>
+                  Current: <strong style={{ color: '#b91c1c' }}>21%</strong> &nbsp;|&nbsp; Optimal: 35–55%
+                </div>
+                <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 2 }}>
+                  Recommended action: <strong>Irrigate Zone 3</strong>
+                </div>
+              </div>
+              <Link
+                to="/control"
+                className="at-btn at-btn-sm"
+                style={{
+                  background: '#f87171',
+                  color: 'white',
+                  border: 'none',
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-md)',
+                  alignSelf: 'center',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Take Action
+              </Link>
+            </div>
+
+            {/* Alert 2: Possible Crop Stress (Warning - Amber) */}
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-lg)',
+                background: '#fffbeb',
+                border: '1px solid #fef3c7',
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+              }}
+            >
+              <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Sprout style={{ width: 13, height: 13, color: '#d97706' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>
+                    Possible crop stress
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>3 hours ago</span>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>
+                  Zone 2
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1 }}>
+                  NDVI indicates lower plant health.
+                </div>
+                <div style={{ fontSize: 11, color: '#92400e', marginTop: 2 }}>
+                  Recommended: <strong>Inspect Zone 2</strong>
+                </div>
+              </div>
+              <Link
+                to="/crop-health"
+                className="at-btn at-btn-sm"
+                style={{
+                  background: '#fde68a',
+                  color: '#78350f',
+                  border: 'none',
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-md)',
+                  alignSelf: 'center',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Inspect
+              </Link>
+            </div>
+
+            {/* Alert 3: High Temperature (Info - Blue) */}
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-lg)',
+                background: '#f0f9ff',
+                border: '1px solid #e0f2fe',
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+              }}
+            >
+              <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Thermometer style={{ width: 13, height: 13, color: '#0284c7' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#0369a1' }}>
+                    High temperature alert
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>5 hours ago</span>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>
+                  Zone 4
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1 }}>
+                  Current: <strong style={{ color: '#0369a1' }}>34.2°C</strong> &nbsp;|&nbsp; Optimal: &lt; 32°C
+                </div>
+                <div style={{ fontSize: 11, color: '#0369a1', marginTop: 2 }}>
+                  Recommended: <strong>Monitor closely</strong>
+                </div>
+              </div>
+              <Link
+                to="/analytics"
+                className="at-btn at-btn-sm"
+                style={{
+                  background: '#bae6fd',
+                  color: '#075985',
+                  border: 'none',
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-md)',
+                  alignSelf: 'center',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                View
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
-      {/* 4. Visual Analytics */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-indigo-600" />
-            Field Sensor Data & Visual Analytics
-          </h2>
-          <p className="text-xs text-slate-500">Comparative sensor distribution, crop allocations, and environmental trends across all 5 farms.</p>
+
+      {/* ── ROW 3: Sensor Trends + Current Weather & Farm Timeline (Matching Reference) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(320px, 1fr)', gap: 16, alignItems: 'start' }}>
+        
+        {/* Sensor Trends Card */}
+        <div className="at-card" style={{ padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Activity style={{ width: 17, height: 17, color: 'var(--color-primary)' }} />
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>Sensor Trends</span>
+              
+              <select
+                value={selectedMetric}
+                onChange={(e) => setSelectedMetric(e.target.value)}
+                className="at-input at-select"
+                style={{ height: 30, fontSize: 12, padding: '2px 24px 2px 8px', width: 'auto', fontWeight: 600 }}
+              >
+                <option value="Soil Moisture">Soil Moisture</option>
+                <option value="Temperature">Temperature</option>
+                <option value="Humidity">Humidity</option>
+                <option value="Soil pH">Soil pH</option>
+              </select>
+            </div>
+
+            {/* Time Range Pills */}
+            <div style={{ display: 'flex', gap: 4, background: 'var(--color-surface-muted)', padding: 3, borderRadius: 'var(--radius-lg)' }}>
+              {[
+                { id: '24h', label: '24 Hours' },
+                { id: '7d', label: '7 Days' },
+                { id: '30d', label: '30 Days' },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  onClick={() => setTrendRange(pill.id as any)}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-md)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: trendRange === pill.id ? 'var(--color-primary)' : 'transparent',
+                    color: trendRange === pill.id ? 'white' : 'var(--color-text-secondary)',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ height: 210, width: '100%', position: 'relative' }}>
+            <div style={{ position: 'absolute', left: -8, top: '40%', transform: 'rotate(-90deg)', fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 600 }}>
+              Soil Moisture (%)
+            </div>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorMoisture" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border-muted)" />
+                <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'var(--color-text-muted)', fontFamily: 'Inter' }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 80]} ticks={[0, 20, 40, 60, 80]} tick={{ fontSize: 10, fill: 'var(--color-text-muted)', fontFamily: 'Inter' }} axisLine={false} tickLine={false} />
+                <Tooltip content={<ChartTooltip />} />
+                <Area type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={2.2} fillOpacity={1} fill="url(#colorMoisture)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-emerald-600" /> Field Sensor Records per Farm
-            </h3>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={telemetryPerFarmData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Bar dataKey="records" fill="#10B981" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+        {/* Right Stack: Current Weather + Farm Timeline */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          
+          {/* Current Weather Card */}
+          <div className="at-card" style={{ padding: '16px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 10 }}>
+              <Sun style={{ width: 16, height: 16, color: '#d97706' }} />
+              Current Weather
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 12, alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Sun style={{ width: 24, height: 24, color: '#d97706' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1 }}>
+                    27.4°C
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                    Partly Cloudy
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11, borderLeft: '1px solid var(--color-border-muted)', paddingLeft: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Humidity</span>
+                  <strong style={{ color: 'var(--color-text-primary)' }}>71%</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Wind Speed</span>
+                  <strong style={{ color: 'var(--color-text-primary)' }}>6.2 km/h</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Rainfall</span>
+                  <strong style={{ color: 'var(--color-text-primary)' }}>0 mm</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Light Intensity</span>
+                  <strong style={{ color: 'var(--color-text-primary)' }}>68 klux</strong>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Cpu className="w-4 h-4 text-indigo-600" /> Sensor Unit Distribution
-            </h3>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={sensorDistData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Bar dataKey="total" fill="#6366F1" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="online" fill="#10B981" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+          {/* Farm Timeline Card */}
+          <div className="at-card" style={{ padding: '16px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                <Clock style={{ width: 16, height: 16, color: 'var(--color-primary)' }} />
+                Farm Timeline
+              </div>
+              <Link to="/activity-log" style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+                View All
+              </Link>
             </div>
-          </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Sprout className="w-4 h-4 text-teal-600" /> Crop Distribution (25 Plots)
-            </h3>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={cropDistData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>
-                    {cropDistData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+            {/* Timeline Steps */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', position: 'relative', padding: '4px 0' }}>
+              {/* Connector line */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 9,
+                  left: 12,
+                  right: 12,
+                  height: 2,
+                  background: 'var(--color-border)',
+                  zIndex: 0,
+                }}
+              />
 
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Droplets className="w-4 h-4 text-blue-600" /> Soil Moisture Comparison (%)
-            </h3>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={moistureCompareData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Bar dataKey="avgMoisture" fill="#0284C7" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Thermometer className="w-4 h-4 text-rose-600" /> 24h Temperature Trends (°C)
-            </h3>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={tempTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="time" tick={{ fontSize: 10 }} />
-                  <YAxis domain={[15, 35]} tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="Dharwad" stroke="#10B981" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="DemoFarm" stroke="#0284C7" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="Precision" stroke="#D97706" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <HeartPulse className="w-4 h-4 text-purple-600" /> Farm Health Score Index
-            </h3>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={farmHealthData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Bar dataKey="healthScore" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {[
+                { date: '01 Sep', label: 'Crop planted', color: 'var(--color-primary)' },
+                { date: '08 Sep', label: 'First scan', color: 'var(--color-primary)' },
+                { date: '15 Sep', label: 'Growth +12%', color: 'var(--color-primary)' },
+                { date: '22 Sep', label: 'Moisture stress', color: 'var(--color-warning)' },
+                { date: '24 Sep', label: 'Irrigation', color: 'var(--color-primary)' },
+                { date: 'Today', label: 'Normal', color: 'var(--color-primary)' },
+              ].map((step, idx) => (
+                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, textAlign: 'center', minWidth: 42 }}>
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      background: step.color,
+                      border: '2px solid white',
+                      boxShadow: '0 0 0 1px var(--color-border)',
+                      marginBottom: 4,
+                    }}
+                  />
+                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-text-primary)' }}>{step.date}</span>
+                  <span style={{ fontSize: 8, color: 'var(--color-text-muted)', lineHeight: 1.1, marginTop: 1 }}>{step.label}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* 5. Supabase Monitor Section */}
+      {/* ── ROW 4: Recommendations (Matching Reference) ── */}
+      <div className="at-card" style={{ padding: '18px 20px', background: '#f8fdf9', border: '1px solid #dcfce7' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: 'var(--color-primary-text)' }}>
+              <Sparkles style={{ width: 17, height: 17, color: 'var(--color-primary)' }} />
+              Recommendations
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+              Actionable insights for a healthier and more productive farm
+            </div>
+          </div>
+          <Link to="/advisor" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+            View All Recommendations
+          </Link>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+          {/* Card 1 */}
+          <Link
+            to="/control"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 16px',
+              background: 'white',
+              borderRadius: 'var(--radius-xl)',
+              border: '1px solid #e2e8f0',
+              textDecoration: 'none',
+              boxShadow: 'var(--shadow-xs)',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-primary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e2e8f0')}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-lg)', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Droplets style={{ width: 17, height: 17, color: '#0284c7' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Irrigate Zone 3</div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>Soil moisture is below the recommended range.</div>
+              </div>
+            </div>
+            <ChevronRight style={{ width: 16, height: 16, color: 'var(--color-text-muted)' }} />
+          </Link>
+
+          {/* Card 2 */}
+          <Link
+            to="/crop-health"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 16px',
+              background: 'white',
+              borderRadius: 'var(--radius-xl)',
+              border: '1px solid #e2e8f0',
+              textDecoration: 'none',
+              boxShadow: 'var(--shadow-xs)',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-primary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e2e8f0')}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-lg)', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Sprout style={{ width: 17, height: 17, color: 'var(--color-primary)' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Inspect Zone 2</div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>Crop condition has changed compared to previous observation.</div>
+              </div>
+            </div>
+            <ChevronRight style={{ width: 16, height: 16, color: 'var(--color-text-muted)' }} />
+          </Link>
+
+          {/* Card 3 */}
+          <Link
+            to="/analytics"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 16px',
+              background: 'white',
+              borderRadius: 'var(--radius-xl)',
+              border: '1px solid #e2e8f0',
+              textDecoration: 'none',
+              boxShadow: 'var(--shadow-xs)',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-primary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e2e8f0')}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-lg)', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <BarChart3 style={{ width: 17, height: 17, color: 'var(--color-text-secondary)' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Monitor Zone 4</div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>Growth rate is lower than the farm average.</div>
+              </div>
+            </div>
+            <ChevronRight style={{ width: 16, height: 16, color: 'var(--color-text-muted)' }} />
+          </Link>
+        </div>
+      </div>
+
+      {/* ── ROW 5: Deep System Sections (Live Plots, Hierarchy, Supabase Monitor) ── */}
+      <div className="at-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="at-card-header" style={{ padding: '16px 20px', marginBottom: 0 }}>
+          <div>
+            <div className="at-card-title">
+              <HeartPulse style={{ width: 17, height: 17, color: 'var(--color-primary)' }} />
+              Live Field Plot Telemetry &mdash; {activeFarmland?.name || 'Active Farm'}
+            </div>
+            <div className="at-card-subtitle">Real-time plot measurements and sensor broadcasting status.</div>
+          </div>
+          <Link to="/virtual-farm" className="at-btn at-btn-secondary at-btn-sm">
+            Open Virtual Farm &rarr;
+          </Link>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+          gap: 0,
+          borderTop: '1px solid var(--color-border-muted)',
+        }}>
+          {activeSections.slice(0, 4).map((plot, idx) => (
+            <div
+              key={plot.id}
+              style={{
+                padding: '16px 18px',
+                borderRight: '1px solid var(--color-border-muted)',
+                borderBottom: '1px solid var(--color-border-muted)',
+                transition: 'background 0.12s',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{
+                    background: 'var(--color-primary)',
+                    color: 'white',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: '2px 6px',
+                    borderRadius: 'var(--radius)',
+                    fontFamily: 'monospace',
+                  }}>
+                    {plot.code}
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-primary)' }}>
+                    {plot.name}
+                  </span>
+                </div>
+                <span className="at-badge success" style={{ fontSize: 10 }}>
+                  <span className="at-badge-dot" />
+                  {plot.soilHealthScore || 85}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <div style={{ background: 'var(--color-surface-muted)', padding: '6px 8px', borderRadius: 8 }}>
+                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Moisture</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{formatMoisture(plot.soilMoisture)}</div>
+                </div>
+                <div style={{ background: 'var(--color-surface-muted)', padding: '6px 8px', borderRadius: 8 }}>
+                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Temp</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{formatTemperature(plot.airTemp)}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Supabase Live DB Monitor Section */}
       <SupabaseMonitorSection />
     </div>
   );

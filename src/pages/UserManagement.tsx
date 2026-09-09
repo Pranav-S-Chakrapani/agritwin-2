@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
-import { 
-  Users, 
-  ShieldCheck, 
-  Sprout, 
-  Search, 
-  RefreshCw, 
-  Calendar, 
-  CheckCircle2, 
-  Mail, 
+import {
+  Users,
+  ShieldCheck,
+  Sprout,
+  Search,
+  Calendar,
+  Mail,
   UserPlus,
   Trash2,
   X,
-  Shield
 } from 'lucide-react';
 import { useAgriStore } from '../context/AgriStore';
 
@@ -19,324 +16,245 @@ export const UserManagement: React.FC = () => {
   const { users, addUser, updateUserRole, deleteUser, currentUser } = useAgriStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'farmer'>('all');
-
-  // Add User Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'farmer'>('farmer');
 
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch = 
-      (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.uid || '').toLowerCase().includes(searchTerm.toLowerCase());
-
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-
     return matchesSearch && matchesRole;
   });
 
-  const adminCount = users.filter((u) => u.role === 'admin').length;
-  const farmerCount = users.filter((u) => u.role === 'farmer').length;
+  const adminCount = users.filter(u => u.role === 'admin').length;
+  const farmerCount = users.filter(u => u.role === 'farmer').length;
 
   const handleAddUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !fullName.trim()) return;
-
-    addUser({
-      email: email.trim(),
-      full_name: fullName.trim(),
-      role,
-      assigned_farm_ids: []
-    });
-
-    setFullName('');
-    setEmail('');
-    setRole('farmer');
+    addUser({ email: email.trim(), full_name: fullName.trim(), role, assigned_farm_ids: [] });
+    setFullName(''); setEmail(''); setRole('farmer');
     setShowAddModal(false);
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 text-slate-800 font-sans pb-10">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center space-x-3.5">
-          <div className="p-3 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold text-slate-900">User Management Directory</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                Admin Role Restricted
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Manage system access roles (Admin vs Field Worker) and user accounts in `agritwin_users`.
-            </p>
-          </div>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>+ Add New User</span>
+      {/* ── Page Header ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 className="at-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 'var(--radius-lg)',
+              background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Users style={{ width: 18, height: 18, color: '#6366f1' }} />
+            </div>
+            User Management
+          </h1>
+          <p className="at-page-subtitle">
+            Manage system access roles and user accounts &bull;{' '}
+            <span className="at-badge info" style={{ fontSize: 10, verticalAlign: 'middle' }}>Admin Only</span>
+          </p>
+        </div>
+        <button onClick={() => setShowAddModal(true)} className="at-btn" id="at-add-user-btn"
+          style={{ background: '#6366f1', color: 'white', border: 'none', boxShadow: '0 4px 14px rgba(99,102,241,0.25)', fontWeight: 700 }}>
+          <UserPlus style={{ width: 15, height: 15 }} />
+          Add New User
         </button>
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Accounts</p>
-            <p className="text-2xl font-black text-slate-900 mt-1">{users.length}</p>
+      {/* ── KPI row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+        {[
+          { label: 'Total Accounts', val: users.length, icon: <Users style={{ width: 16, height: 16, color: 'var(--color-text-muted)' }} />, bg: 'var(--color-surface-muted)' },
+          { label: 'Administrators', val: adminCount, icon: <ShieldCheck style={{ width: 16, height: 16, color: '#6366f1' }} />, bg: '#ede9fe' },
+          { label: 'Field Workers', val: farmerCount, icon: <Sprout style={{ width: 16, height: 16, color: 'var(--color-primary)' }} />, bg: 'var(--color-primary-muted)' },
+        ].map(m => (
+          <div key={m.label} className="at-metric-card">
+            <div className="at-metric-label">
+              {m.label}
+              <div className="at-metric-icon" style={{ background: m.bg }}>{m.icon}</div>
+            </div>
+            <div className="at-metric-value">{m.val}</div>
           </div>
-          <div className="p-3 bg-slate-100 text-slate-600 rounded-2xl">
-            <Users className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Administrators</p>
-            <p className="text-2xl font-black text-indigo-900 mt-1">{adminCount}</p>
-          </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Farmers / Workers</p>
-            <p className="text-2xl font-black text-emerald-900 mt-1">{farmerCount}</p>
-          </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
-            <Sprout className="w-5 h-5" />
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-          <input
-            type="text"
-            placeholder="Search by name, email, or UID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-          />
+      {/* ── Search + Filter ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+        <div className="at-search" style={{ flex: 1, minWidth: 200, maxWidth: 340 }}>
+          <Search className="at-search-icon" style={{ width: 15, height: 15 }} />
+          <input className="at-input" type="text" placeholder="Search by name, email, or UID..." value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)} style={{ paddingLeft: 34 }} aria-label="Search users" />
         </div>
-
-        {/* Role Filter Tabs */}
-        <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
-          {(['all', 'admin', 'farmer'] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRoleFilter(r)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                roleFilter === r
-                  ? 'bg-white text-indigo-900 shadow-2xs font-extrabold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {r === 'all' ? 'All Roles' : r === 'admin' ? 'Admins' : 'Farmers / Workers'}
+        <div className="at-tabs" style={{ width: 'auto', gap: 2 }}>
+          {(['all', 'admin', 'farmer'] as const).map(r => (
+            <button key={r} onClick={() => setRoleFilter(r)}
+              className={`at-tab${roleFilter === r ? ' active' : ''}`}>
+              {r === 'all' ? 'All Roles' : r === 'admin' ? 'Admins' : 'Field Workers'}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Users Data Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 border-b border-slate-200 uppercase font-bold text-[10px] text-slate-500 tracking-wider">
+      {/* ── Users Table ── */}
+      <div className="at-table-wrap">
+        <table className="at-table">
+          <thead>
+            <tr>
+              <th>User Identity</th>
+              <th>Role</th>
+              <th>System UID</th>
+              <th>Joined</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredUsers.length === 0 ? (
               <tr>
-                <th className="px-6 py-3.5">User Identity</th>
-                <th className="px-6 py-3.5">Assigned Role</th>
-                <th className="px-6 py-3.5">System UID</th>
-                <th className="px-6 py-3.5">Joined Date</th>
-                <th className="px-6 py-3.5 text-right">Actions / Role Switcher</th>
+                <td colSpan={5} style={{ textAlign: 'center', padding: '40px 24px', color: 'var(--color-text-muted)' }}>
+                  No matching users found.
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
-              {filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
-                    No matching users found.
-                  </td>
-                </tr>
-              ) : (
-                filteredUsers.map((u) => {
-                  const isCurrent = u.uid === currentUser?.uid;
-                  const isAdminUser = u.role === 'admin';
+            ) : (
+              filteredUsers.map(u => {
+                const isCurrent = u.uid === currentUser?.uid;
+                const isAdminUser = u.role === 'admin';
+                const initials = (u.full_name?.charAt(0) || 'U').toUpperCase();
 
-                  return (
-                    <tr key={u.uid} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm text-white ${
-                            isAdminUser ? 'bg-indigo-600' : 'bg-emerald-600'
-                          }`}>
-                            {(u.full_name?.charAt(0) || 'U').toUpperCase()}
+                return (
+                  <tr key={u.uid}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{
+                          width: 36, height: 36, borderRadius: 'var(--radius-lg)',
+                          background: isAdminUser ? '#6366f1' : 'var(--color-primary)',
+                          color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontWeight: 800, fontSize: 14, flexShrink: 0,
+                        }}>
+                          {initials}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--color-text-primary)', fontSize: 13 }}>
+                            {u.full_name || 'AgriTwin User'}
+                            {isCurrent && (
+                              <span style={{ fontSize: 10, background: 'var(--color-text-primary)', color: 'white', padding: '1px 5px', borderRadius: 3, fontFamily: 'monospace' }}>
+                                You
+                              </span>
+                            )}
                           </div>
-                          <div>
-                            <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                              <span>{u.full_name || 'AgriTwin User'}</span>
-                              {isCurrent && (
-                                <span className="text-[9px] bg-slate-900 text-white px-1.5 py-0.2 rounded font-mono">You</span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                              <Mail className="w-3 h-3 text-slate-400" />
-                              <span>{u.email}</span>
-                            </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--color-text-muted)' }}>
+                            <Mail style={{ width: 11, height: 11 }} />
+                            {u.email}
                           </div>
                         </div>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {isAdminUser ? (
-                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>Administrator</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <Sprout className="w-3.5 h-3.5" />
-                            <span>Field Worker</span>
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-6 py-4 font-mono text-[11px] text-slate-500">
-                        {u.uid}
-                      </td>
-
-                      <td className="px-6 py-4 text-slate-500 text-[11px]">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-3 h-3 text-slate-400" />
-                          <span>{u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Active'}</span>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          {/* 1-Tap Role Switcher */}
+                      </div>
+                    </td>
+                    <td>
+                      {isAdminUser ? (
+                        <span className="at-badge info" style={{ fontSize: 11 }}>
+                          <ShieldCheck style={{ width: 11, height: 11 }} />
+                          Administrator
+                        </span>
+                      ) : (
+                        <span className="at-badge success" style={{ fontSize: 11 }}>
+                          <Sprout style={{ width: 11, height: 11 }} />
+                          Field Worker
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--color-text-muted)' }}>{u.uid}</td>
+                    <td>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--color-text-muted)' }}>
+                        <Calendar style={{ width: 11, height: 11 }} />
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Active'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => updateUserRole(u.uid, isAdminUser ? 'farmer' : 'admin')}
+                          className={`at-btn at-btn-sm ${isAdminUser ? 'at-btn-secondary' : 'at-btn-secondary'}`}
+                          style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px' }}
+                        >
+                          {isAdminUser ? 'Set as Worker' : 'Promote to Admin'}
+                        </button>
+                        {!isCurrent && (
                           <button
                             type="button"
-                            onClick={() => updateUserRole(u.uid, isAdminUser ? 'farmer' : 'admin')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
-                              isAdminUser
-                                ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
-                                : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
-                            }`}
+                            onClick={() => { if (confirm(`Delete ${u.full_name}?`)) deleteUser(u.uid); }}
+                            className="at-btn-icon"
+                            style={{ width: 30, height: 30, color: 'var(--color-text-muted)' }}
+                            title="Delete user"
                           >
-                            {isAdminUser ? 'Set as Worker' : 'Promote to Admin'}
+                            <Trash2 style={{ width: 13, height: 13 }} />
                           </button>
-
-                          {/* Delete User */}
-                          {!isCurrent && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (confirm(`Are you sure you want to delete ${u.full_name}?`)) {
-                                  deleteUser(u.uid);
-                                }
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                              title="Delete Account"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Add User Modal */}
+      {/* ── Add User Modal ── */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200 relative">
-            <button
-              type="button"
-              onClick={() => setShowAddModal(false)}
-              className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
-            >
-              <X className="w-5 h-5" />
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div style={{
+            background: 'var(--color-surface)', borderRadius: 'var(--radius-2xl)',
+            maxWidth: 440, width: '100%', padding: 28,
+            boxShadow: 'var(--shadow-lg)', border: '1px solid var(--color-border)',
+            position: 'relative',
+          }}>
+            <button type="button" onClick={() => setShowAddModal(false)}
+              className="at-btn-icon" style={{ position: 'absolute', top: 16, right: 16 }}>
+              <X style={{ width: 15, height: 15 }} />
             </button>
 
-            <div className="flex items-center space-x-3">
-              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-                <UserPlus className="w-6 h-6" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 'var(--radius-xl)', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <UserPlus style={{ width: 20, height: 20, color: '#6366f1' }} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Provision New User Account</h3>
-                <p className="text-xs text-slate-500">Create an authenticated system user profile</p>
+                <h3 style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)' }}>Provision New User</h3>
+                <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Create an authenticated system user profile</p>
               </div>
             </div>
 
-            <form onSubmit={handleAddUserSubmit} className="space-y-4 pt-2">
+            <form onSubmit={handleAddUserSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Ramesh Patil"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm font-medium outline-none focus:border-indigo-500"
-                />
+                <label className="at-label">Full Name</label>
+                <input type="text" required placeholder="e.g. Ramesh Patil" value={fullName}
+                  onChange={e => setFullName(e.target.value)} className="at-input" />
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="ramesh@agritwin.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm font-medium outline-none focus:border-indigo-500"
-                />
+                <label className="at-label">Email Address</label>
+                <input type="email" required placeholder="ramesh@agritwin.com" value={email}
+                  onChange={e => setEmail(e.target.value)} className="at-input" />
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Initial Access Role</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm font-bold outline-none focus:border-indigo-500"
-                >
-                  <option value="farmer">Field Worker / Farmer (Operational Access)</option>
+                <label className="at-label">Initial Access Role</label>
+                <select value={role} onChange={e => setRole(e.target.value as any)} className="at-input at-select">
+                  <option value="farmer">Field Worker / Farmer</option>
                   <option value="admin">Administrator (Full Access)</option>
                 </select>
               </div>
-
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20"
-                >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, borderTop: '1px solid var(--color-border-muted)', paddingTop: 16 }}>
+                <button type="button" onClick={() => setShowAddModal(false)} className="at-btn at-btn-ghost">Cancel</button>
+                <button type="submit" className="at-btn" id="at-create-user-submit"
+                  style={{ background: '#6366f1', color: 'white', border: 'none', boxShadow: '0 4px 14px rgba(99,102,241,0.25)' }}>
                   Create User
                 </button>
               </div>

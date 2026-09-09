@@ -3,31 +3,30 @@ import {
   Bell,
   AlertCircle,
   CheckCircle2,
-  Filter,
   Download,
   Building2,
   Sprout,
   Clock,
-  ShieldCheck,
   Check,
   X,
-  RefreshCw,
-  Search
+  Search,
+  AlertTriangle,
+  Info,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAgriStore } from '../context/AgriStore';
 import { useAuth } from '../context/AuthContext';
 import { FarmAlert, AlertSeverity, AlertStatus } from '../types';
 import { exportAlerts } from '../lib/csv-exporter';
 
-function getSeverityBadge(severity: AlertSeverity) {
+function getSeverityInfo(severity: AlertSeverity) {
   switch (severity) {
     case 'critical':
-      return { label: 'Critical Alert', bg: 'bg-rose-100 text-rose-800 border-rose-300', dot: 'bg-rose-500' };
+      return { label: 'Critical', cls: 'danger', icon: <ShieldAlert style={{ width: 14, height: 14 }} /> };
     case 'warning':
-      return { label: 'Warning', bg: 'bg-amber-100 text-amber-800 border-amber-300', dot: 'bg-amber-500' };
-    case 'info':
+      return { label: 'Warning', cls: 'warning', icon: <AlertTriangle style={{ width: 14, height: 14 }} /> };
     default:
-      return { label: 'Notice', bg: 'bg-blue-100 text-blue-800 border-blue-300', dot: 'bg-blue-500' };
+      return { label: 'Notice', cls: 'info', icon: <Info style={{ width: 14, height: 14 }} /> };
   }
 }
 
@@ -40,10 +39,10 @@ export const Alerts: React.FC = () => {
   const [farmFilter, setFarmFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  const activeCount = alerts.filter((a) => a.status === 'active').length;
-  const criticalCount = alerts.filter((a) => a.status === 'active' && a.severity === 'critical').length;
-  const warningCount = alerts.filter((a) => a.status === 'active' && a.severity === 'warning').length;
-  const resolvedCount = alerts.filter((a) => a.status === 'resolved').length;
+  const activeCount    = alerts.filter((a) => a.status === 'active').length;
+  const criticalCount  = alerts.filter((a) => a.status === 'active' && a.severity === 'critical').length;
+  const warningCount   = alerts.filter((a) => a.status === 'active' && a.severity === 'warning').length;
+  const resolvedCount  = alerts.filter((a) => a.status === 'resolved').length;
 
   const filteredAlerts = useMemo(() => {
     return alerts.filter((alert) => {
@@ -52,9 +51,7 @@ export const Alerts: React.FC = () => {
       if (farmFilter !== 'all' && alert.farmId !== farmFilter) return false;
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
-        if (!alert.title.toLowerCase().includes(term) && !alert.message.toLowerCase().includes(term)) {
-          return false;
-        }
+        if (!alert.title.toLowerCase().includes(term) && !alert.message.toLowerCase().includes(term)) return false;
       }
       return true;
     });
@@ -63,95 +60,84 @@ export const Alerts: React.FC = () => {
   const handleExport = () => {
     exportAlerts(filteredAlerts, { farmId: farmFilter, severity: severityFilter as any }, userProfile?.full_name);
   };
+
+  const STATUS_TABS = [
+    { id: 'active',   label: `Active`,   count: activeCount },
+    { id: 'resolved', label: `Resolved`, count: resolvedCount },
+    { id: 'all',      label: `All`,      count: alerts.length },
+  ];
+
   return (
-    <div className="space-y-6 font-sans text-slate-800">
-      {/* Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white rounded-3xl p-6 shadow-xl border border-emerald-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+      {/* ── Page Header ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div className="flex items-center space-x-2">
-            <span className="bg-emerald-500/20 text-emerald-300 text-[11px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-emerald-500/30 flex items-center gap-1.5">
-              <Bell className="w-3.5 h-3.5 text-emerald-400" />
-              Automated Alert Engine
-            </span>
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-black mt-2 tracking-tight">Farm Alerts &amp; Warnings</h1>
-          <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-            Real-time threshold surveillance for soil moisture deficits, heat stress, low humidity, and abnormal soil pH.
+          <h1 className="at-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Bell style={{ width: 22, height: 22, color: activeCount > 0 ? 'var(--color-warning)' : 'var(--color-text-muted)' }} />
+            Alerts & Warnings
+          </h1>
+          <p className="at-page-subtitle">
+            Real-time threshold surveillance — soil moisture, heat stress, humidity, and soil pH anomalies.
           </p>
         </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleExport}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <Download className="w-4 h-4" />
-            Download Alerts CSV
-          </button>
-        </div>
+        <button onClick={handleExport} className="at-btn at-btn-secondary" id="at-export-alerts-btn">
+          <Download style={{ width: 15, height: 15 }} />
+          Export CSV
+        </button>
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="text-[11px] font-extrabold uppercase text-slate-400">Active Alerts</div>
-          <div className={`text-2xl font-black mt-1 ${activeCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-            {activeCount}
+      {/* ── KPI Metrics ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+        {[
+          { label: 'Active Alerts', value: activeCount, cls: activeCount > 0 ? 'var(--color-warning)' : 'var(--color-text-muted)', sub: 'Requiring attention' },
+          { label: 'Critical', value: criticalCount, cls: criticalCount > 0 ? 'var(--color-danger)' : 'var(--color-text-muted)', sub: 'Immediate action' },
+          { label: 'Warnings', value: warningCount, cls: warningCount > 0 ? 'var(--color-warning)' : 'var(--color-text-muted)', sub: 'Threshold exceeded' },
+          { label: 'Resolved', value: resolvedCount, cls: 'var(--color-success)', sub: 'Completed cycles' },
+        ].map((m) => (
+          <div key={m.label} className="at-metric-card">
+            <div className="at-metric-label">{m.label}</div>
+            <div className="at-metric-value" style={{ color: m.cls, fontSize: 28 }}>{m.value}</div>
+            <div className="at-metric-sub">{m.sub}</div>
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Requiring Attention</div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="text-[11px] font-extrabold uppercase text-slate-400">Critical</div>
-          <div className={`text-2xl font-black mt-1 ${criticalCount > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-            {criticalCount}
-          </div>
-          <div className="text-[10px] text-rose-600 font-bold mt-0.5">Immediate Action</div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="text-[11px] font-extrabold uppercase text-slate-400">Warnings</div>
-          <div className="text-2xl font-black text-amber-600 mt-1">{warningCount}</div>
-          <div className="text-[10px] text-amber-600 font-bold mt-0.5">Threshold Alerts</div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="text-[11px] font-extrabold uppercase text-slate-400">Resolved</div>
-          <div className="text-2xl font-black text-emerald-600 mt-1">{resolvedCount}</div>
-          <div className="text-[10px] text-emerald-600 font-bold mt-0.5">Completed Cycles</div>
-        </div>
+        ))}
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3">
-        {/* Status Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {[
-            { id: 'active', label: `Active (${activeCount})` },
-            { id: 'resolved', label: `Resolved (${resolvedCount})` },
-            { id: 'all', label: `All Alerts (${alerts.length})` },
-          ].map((tab) => (
+      {/* ── Filter Toolbar ── */}
+      <div className="at-card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Status tabs */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {STATUS_TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id as any)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                statusFilter === tab.id
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
+              className={`at-filter-btn${statusFilter === tab.id ? ' active' : ''}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
               {tab.label}
+              <span style={{
+                fontSize: 10,
+                fontWeight: 800,
+                padding: '1px 6px',
+                borderRadius: 'var(--radius-full)',
+                background: statusFilter === tab.id ? 'var(--color-primary)' : 'var(--color-surface-muted)',
+                color: statusFilter === tab.id ? 'white' : 'var(--color-text-muted)',
+              }}>
+                {tab.count}
+              </span>
             </button>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, paddingTop: 12, borderTop: '1px solid var(--color-border-muted)' }}>
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">Severity</label>
+            <label className="at-label" style={{ fontSize: 11 }}>Severity</label>
             <select
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="at-input at-select"
+              style={{ height: 36, fontSize: 13 }}
+              aria-label="Filter by severity"
             >
               <option value="all">All Severities</option>
               <option value="critical">Critical</option>
@@ -161,11 +147,13 @@ export const Alerts: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">Farm</label>
+            <label className="at-label" style={{ fontSize: 11 }}>Farm</label>
             <select
               value={farmFilter}
               onChange={(e) => setFarmFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="at-input at-select"
+              style={{ height: 36, fontSize: 13 }}
+              aria-label="Filter by farm"
             >
               <option value="all">All Farms ({farmlands.length})</option>
               {farmlands.map((f) => (
@@ -175,103 +163,162 @@ export const Alerts: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">Search</label>
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+            <label className="at-label" style={{ fontSize: 11 }}>Search</label>
+            <div className="at-search">
+              <Search className="at-search-icon" style={{ width: 14, height: 14 }} />
               <input
+                className="at-input"
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search alerts..."
-                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                style={{ paddingLeft: 32, height: 36, fontSize: 13 }}
+                aria-label="Search alerts"
               />
             </div>
           </div>
         </div>
       </div>
-      {/* Alerts Feed */}
-      <div className="space-y-3">
+
+      {/* ── Results count ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 13, color: 'var(--color-text-muted)', fontWeight: 500 }}>
+          Showing <strong style={{ color: 'var(--color-text-primary)' }}>{filteredAlerts.length}</strong> alert{filteredAlerts.length !== 1 ? 's' : ''}
+        </span>
+        {criticalCount > 0 && (
+          <span className="at-badge danger">
+            <span className="at-badge-dot" style={{ animation: 'at-pulse 1.5s infinite' }} />
+            {criticalCount} critical — immediate action required
+          </span>
+        )}
+      </div>
+
+      {/* ── Alert Cards ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {filteredAlerts.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center text-slate-400 text-sm">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-            No active alerts matching your current filter. All field parameters are optimal!
+          <div className="at-card">
+            <div className="at-empty">
+              <div className="at-empty-icon">
+                <CheckCircle2 style={{ width: 28, height: 28, color: 'var(--color-success)' }} />
+              </div>
+              <div className="at-empty-title">All clear</div>
+              <div className="at-empty-text">
+                No alerts matching your current filter. All field parameters are within optimal ranges.
+              </div>
+            </div>
           </div>
         ) : (
           filteredAlerts.map((alert) => {
-            const badge = getSeverityBadge(alert.severity);
+            const sev = getSeverityInfo(alert.severity);
             const farm = farmlands.find((f) => f.id === alert.farmId);
             const plot = plots.find((p) => p.id === alert.plotId || p.code === alert.plotId);
             const isResolved = alert.status === 'resolved';
             const cleanTitle = (alert.title || '').replace(/\(undefined\)/gi, '').replace(/\bundefined\b/gi, 'Sensor Node').trim();
             const cleanMessage = (alert.message || '').replace(/\(undefined\)/gi, '').replace(/\bundefined\b/gi, 'Sensor Node').trim();
 
+            const leftBorderColor = alert.severity === 'critical'
+              ? 'var(--color-danger)'
+              : alert.severity === 'warning'
+              ? 'var(--color-warning)'
+              : 'var(--color-info)';
+
             return (
               <div
                 key={alert.id}
-                className={`bg-white rounded-2xl border p-5 transition-all shadow-2xs space-y-3 ${
-                  isResolved ? 'border-slate-200 opacity-75' : 'border-slate-300 hover:border-slate-400'
-                }`}
+                className="at-card"
+                style={{
+                  padding: '16px 20px',
+                  borderLeft: `4px solid ${leftBorderColor}`,
+                  opacity: isResolved ? 0.7 : 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}
               >
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${badge.bg}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
-                        {badge.label}
+                {/* Top row */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                      <span className={`at-badge ${sev.cls}`} style={{ gap: 4 }}>
+                        {sev.icon}
+                        {sev.label}
                       </span>
                       {isResolved && (
-                        <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                        <span className="at-badge success">
+                          <span className="at-badge-dot" />
                           Resolved
                         </span>
                       )}
-                      <h3 className="font-extrabold text-base text-slate-900">{cleanTitle}</h3>
                     </div>
-                    <p className="text-xs text-slate-600 leading-relaxed pt-0.5">{cleanMessage}</p>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 4 }}>
+                      {cleanTitle}
+                    </h3>
+                    <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+                      {cleanMessage}
+                    </p>
                   </div>
 
                   {/* Actions */}
                   {!isResolved && (
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                       <button
                         onClick={() => resolveAlert(alert.id, userProfile?.full_name)}
-                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 transition-all cursor-pointer"
+                        className="at-btn at-btn-primary at-btn-sm"
+                        id={`at-resolve-${alert.id}`}
+                        style={{ gap: 5 }}
                       >
-                        <Check className="w-3.5 h-3.5" /> Mark Resolved
+                        <Check style={{ width: 13, height: 13 }} />
+                        Mark Resolved
                       </button>
                       <button
                         onClick={() => dismissAlert(alert.id)}
-                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
-                        title="Dismiss"
+                        className="at-btn-icon"
+                        title="Dismiss alert"
+                        aria-label="Dismiss"
+                        style={{ width: 30, height: 30 }}
                       >
-                        <X className="w-4 h-4" />
+                        <X style={{ width: 14, height: 14 }} />
                       </button>
                     </div>
                   )}
                 </div>
 
-                {/* Footer Strip */}
-                <div className="flex items-center gap-4 text-[11px] text-slate-500 pt-2 border-t border-slate-100 flex-wrap">
+                {/* Footer metadata */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                  fontSize: 11,
+                  color: 'var(--color-text-muted)',
+                  borderTop: '1px solid var(--color-border-muted)',
+                  paddingTop: 10,
+                  flexWrap: 'wrap',
+                }}>
                   {farm && (
-                    <span className="flex items-center gap-1 font-semibold text-slate-700">
-                      <Building2 className="w-3 h-3 text-emerald-600" /> {farm.name}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                      <Building2 style={{ width: 12, height: 12, color: 'var(--color-primary)' }} />
+                      {farm.name}
                     </span>
                   )}
                   {plot && (
-                    <span className="flex items-center gap-1 font-semibold text-slate-700">
-                      <Sprout className="w-3 h-3 text-teal-600" /> {plot.name} ({plot.code})
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                      <Sprout style={{ width: 12, height: 12, color: 'var(--color-secondary)' }} />
+                      {plot.name} ({plot.code})
                     </span>
                   )}
                   {alert.value !== undefined && alert.threshold !== undefined && (
-                    <span className="text-slate-600">
-                      Reading: <strong>{alert.value}</strong> | Threshold: <strong>{alert.threshold}</strong>
+                    <span>
+                      Reading: <strong style={{ color: 'var(--color-text-primary)' }}>{alert.value}</strong>
+                      {' '}| Threshold: <strong style={{ color: 'var(--color-text-primary)' }}>{alert.threshold}</strong>
                     </span>
                   )}
-                  <span className="ml-auto text-slate-400">
+                  <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Clock style={{ width: 11, height: 11 }} />
                     {new Date(alert.createdAt).toLocaleString()}
                   </span>
                   {alert.resolvedBy && (
-                    <span className="text-emerald-700 font-medium">
-                      Resolved by: <strong>{alert.resolvedBy}</strong>
+                    <span style={{ color: 'var(--color-success-text)', fontWeight: 600 }}>
+                      Resolved by: {alert.resolvedBy}
                     </span>
                   )}
                 </div>

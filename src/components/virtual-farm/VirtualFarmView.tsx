@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAgriStore } from '../../context/AgriStore';
 import { DataSourceBadge } from '../common/DataSourceBadge';
+import { PrototypeModeBanner } from '../common/PrototypeModeBanner';
 import PlantCanopySvg from '../common/PlantCanopySvg';
 import { Plant3DCanvas } from '../3d/Plant3DCanvas';
 import { PlotBed, Crop, TelemetryObservation } from '../../types';

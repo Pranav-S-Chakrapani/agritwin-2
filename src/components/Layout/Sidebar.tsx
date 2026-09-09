@@ -24,6 +24,8 @@ import {
   Bell,
   ClipboardList,
   X,
+  Cpu,
+  FlaskConical,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAgriStore } from '../../context/AgriStore';
@@ -49,226 +51,287 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   };
 
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-150 font-bold text-sm ${
-      isActive
-        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
-        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-    }`;
+    `at-nav-item${isActive ? ' active' : ''}`;
 
   const subNavItemClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-all text-sm ${
-      isActive ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-    }`;
+    `at-nav-item text-sm${isActive ? ' active' : ''}`;
 
   return (
-    <aside className="w-64 bg-slate-900 text-white flex flex-col h-full border-r border-slate-800 shadow-2xl shrink-0 font-sans">
-      {/* Brand Header */}
-      <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-xl shadow-md text-slate-950">
-            <Leaf className="w-5 h-5 fill-current" />
+    <aside className="at-sidebar" style={{ fontFamily: 'Inter, sans-serif' }}>
+      {/* ── Brand Header ── */}
+      <div className="at-sidebar-brand" style={{ justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="at-sidebar-logo">
+            <Leaf style={{ width: 18, height: 18, color: 'white' }} />
           </div>
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-black text-xl text-white tracking-wide">AgriTwin</span>
-              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950 border border-emerald-800 px-1.5 py-0.5 rounded">
-                v2.5
-              </span>
+            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--color-text-primary)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+              AgriTwin
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">Smart Farm Platform</p>
+            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 400, lineHeight: 1.3 }}>
+              Digital Twin Platform
+            </div>
           </div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="lg:hidden p-1.5 text-slate-400 hover:text-white cursor-pointer">
-            <X className="w-4 h-4" />
+          <button
+            onClick={onClose}
+            className="at-btn-icon lg:hidden"
+            style={{ width: 28, height: 28 }}
+            aria-label="Close menu"
+          >
+            <X style={{ width: 14, height: 14 }} />
           </button>
         )}
       </div>
 
-      {/* Navigation Container */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+      {/* ── Navigation ── */}
+      <nav className="at-sidebar-nav">
 
-        {/* ── TIER 1: FARM OPERATIONS ──────────────────────────── */}
-        <div className="space-y-1">
-          <div className="px-3 pb-2 text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">
-            MY FARM
-          </div>
+        {/* MY FARM */}
+        <span className="at-sidebar-section-label">My Farm</span>
 
-          <NavLink to="/" end className={navItemClass} onClick={onClose}>
-            <LayoutDashboard className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span>Farm Dashboard</span>
-          </NavLink>
+        <NavLink to="/" end className={navItemClass} onClick={onClose}>
+          <LayoutDashboard className="at-nav-icon" />
+          <span>Dashboard</span>
+        </NavLink>
 
-          <NavLink to="/my-farms" className={navItemClass} onClick={onClose}>
-            <Building2 className="w-5 h-5 text-teal-400 shrink-0" />
-            <span>My Farms & Plots</span>
-          </NavLink>
+        <NavLink to="/my-farms" className={navItemClass} onClick={onClose}>
+          <Building2 className="at-nav-icon" />
+          <span>My Farms & Plots</span>
+        </NavLink>
 
-          <NavLink to="/virtual-farm" className={navItemClass} onClick={onClose}>
-            <Grid className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span>Live Farm View</span>
-          </NavLink>
+        <NavLink to="/virtual-farm" className={navItemClass} onClick={onClose}>
+          <Grid className="at-nav-icon" />
+          <span>Live Farm View</span>
+        </NavLink>
 
-          <NavLink to="/crop-health" className={navItemClass} onClick={onClose}>
-            <Sprout className="w-5 h-5 text-lime-400 shrink-0" />
-            <span>Crop Health Check</span>
-          </NavLink>
+        <NavLink to="/crop-health" className={navItemClass} onClick={onClose}>
+          <Sprout className="at-nav-icon" />
+          <span>Crop Health</span>
+        </NavLink>
 
-          <NavLink to="/analytics" className={navItemClass} onClick={onClose}>
-            <LineChart className="w-5 h-5 text-amber-400 shrink-0" />
-            <span>Sensor Charts</span>
-          </NavLink>
+        <NavLink to="/analytics" className={navItemClass} onClick={onClose}>
+          <LineChart className="at-nav-icon" />
+          <span>Sensor Charts</span>
+        </NavLink>
 
-          <NavLink to="/control" className={navItemClass} onClick={onClose}>
-            <Activity className="w-5 h-5 text-sky-400 shrink-0" />
-            <span>Control Devices</span>
-          </NavLink>
-        </div>
+        <NavLink to="/control" className={navItemClass} onClick={onClose}>
+          <Activity className="at-nav-icon" />
+          <span>Device Control</span>
+        </NavLink>
 
-        {/* ── TIER 1.5: MONITORING & LOGS ──────────────────────── */}
-        <div className="border-t border-slate-800/80 pt-3 space-y-1">
-          <div className="px-3 pb-2 text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">
-            MONITORING & LOGS
-          </div>
+        {/* MONITORING */}
+        <span className="at-sidebar-section-label">Monitoring</span>
 
-          <NavLink to="/alerts" className={({ isActive }) =>
-            `flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-150 font-bold text-sm relative ${
-              isActive
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
-                : criticalCount > 0
-                ? 'text-red-300 bg-red-900/30 hover:bg-red-900/50'
-                : activeAlertCount > 0
-                ? 'text-amber-300 hover:bg-slate-800 hover:text-white'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`
-          } onClick={onClose}>
-            <Bell className="w-5 h-5 shrink-0" />
-            <span>Alerts & Warnings</span>
-            {activeAlertCount > 0 && (
-              <span className={`ml-auto text-[10px] font-black px-2 py-0.5 rounded-full text-white ${
-                criticalCount > 0 ? 'bg-red-500' : 'bg-amber-500'
-              }`}>
-                {activeAlertCount}
-              </span>
-            )}
-          </NavLink>
+        <NavLink
+          to="/alerts"
+          onClick={onClose}
+          className={({ isActive }) =>
+            `at-nav-item${isActive ? ' active' : ''}${criticalCount > 0 && !isActive ? ' text-danger' : ''}`
+          }
+        >
+          <Bell className="at-nav-icon" />
+          <span>Alerts & Warnings</span>
+          {activeAlertCount > 0 && (
+            <span className={`at-nav-badge${criticalCount > 0 ? '' : ' warning'}`}>
+              {activeAlertCount}
+            </span>
+          )}
+        </NavLink>
 
-          <NavLink to="/activity-log" className={navItemClass} onClick={onClose}>
-            <ClipboardList className="w-5 h-5 text-violet-400 shrink-0" />
-            <span>Field Activity Log</span>
-          </NavLink>
+        <NavLink to="/activity-log" className={navItemClass} onClick={onClose}>
+          <ClipboardList className="at-nav-icon" />
+          <span>Activity Log</span>
+        </NavLink>
 
-          <NavLink to="/history" className={navItemClass} onClick={onClose}>
-            <FileText className="w-5 h-5 text-slate-400 shrink-0" />
-            <span>Field Log</span>
-          </NavLink>
-        </div>
+        <NavLink to="/history" className={navItemClass} onClick={onClose}>
+          <FileText className="at-nav-icon" />
+          <span>Field Log</span>
+        </NavLink>
 
-        {/* ── TIER 2: ADVANCED (COLLAPSIBLE) ──────────────── */}
-        <div className="border-t border-slate-800/80 pt-3">
+        {/* ADVANCED & AI */}
+        <span className="at-sidebar-section-label" style={{ marginTop: 4 }}>
           <button
             onClick={() => setAdvancedOpen(!advancedOpen)}
-            className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-extrabold text-slate-400 uppercase tracking-widest hover:text-slate-200 transition-colors cursor-pointer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--color-text-muted)',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: 0,
+            }}
           >
-            <span>ADVANCED & AI TOOLS</span>
-            {advancedOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            Advanced & AI
+            {advancedOpen
+              ? <ChevronDown style={{ width: 12, height: 12 }} />
+              : <ChevronRight style={{ width: 12, height: 12 }} />
+            }
           </button>
+        </span>
 
-          {advancedOpen && (
-            <div className="mt-1 space-y-1 pl-1">
-              <NavLink to="/advisor" className={subNavItemClass} onClick={onClose}>
-                <BrainCircuit className="w-4 h-4 text-indigo-400" />
-                <span>AI Crop Advisor</span>
-              </NavLink>
-              <NavLink to="/research" className={subNavItemClass} onClick={onClose}>
-                <Database className="w-4 h-4 text-purple-400" />
-                <span>Research Workspace</span>
-              </NavLink>
-              <NavLink to="/map" className={subNavItemClass} onClick={onClose}>
-                <Map className="w-4 h-4 text-purple-400" />
-                <span>Map View</span>
-              </NavLink>
-              <NavLink to="/compare" className={subNavItemClass} onClick={onClose}>
-                <GitCompare className="w-4 h-4 text-purple-400" />
-                <span>Crop Comparison</span>
-              </NavLink>
-              <NavLink to="/what-if" className={subNavItemClass} onClick={onClose}>
-                <Sliders className="w-4 h-4 text-purple-400" />
-                <span>What-If Simulator</span>
-              </NavLink>
-              <NavLink to="/camera" className={subNavItemClass} onClick={onClose}>
-                <Camera className="w-4 h-4 text-purple-400" />
-                <span>Camera Feed</span>
-              </NavLink>
-              <NavLink to="/vision" className={subNavItemClass} onClick={onClose}>
-                <Sprout className="w-4 h-4 text-purple-400" />
-                <span>Crop Vision Scanner</span>
-              </NavLink>
-              <NavLink to="/sensors" className={subNavItemClass} onClick={onClose}>
-                <Radio className="w-4 h-4 text-purple-400" />
-                <span>Sensor Units (Detailed)</span>
-              </NavLink>
-            </div>
-          )}
-        </div>
+        {advancedOpen && (
+          <>
+            <NavLink to="/advisor" className={subNavItemClass} onClick={onClose}>
+              <BrainCircuit className="at-nav-icon" style={{ width: 16, height: 16 }} />
+              <span>AI Crop Advisor</span>
+            </NavLink>
+            <NavLink to="/research" className={subNavItemClass} onClick={onClose}>
+              <FlaskConical className="at-nav-icon" style={{ width: 16, height: 16 }} />
+              <span>Research Workspace</span>
+            </NavLink>
+            <NavLink to="/map" className={subNavItemClass} onClick={onClose}>
+              <Map className="at-nav-icon" style={{ width: 16, height: 16 }} />
+              <span>Map View</span>
+            </NavLink>
+            <NavLink to="/compare" className={subNavItemClass} onClick={onClose}>
+              <GitCompare className="at-nav-icon" style={{ width: 16, height: 16 }} />
+              <span>Crop Comparison</span>
+            </NavLink>
+            <NavLink to="/what-if" className={subNavItemClass} onClick={onClose}>
+              <Sliders className="at-nav-icon" style={{ width: 16, height: 16 }} />
+              <span>What-If Simulator</span>
+            </NavLink>
+            <NavLink to="/camera" className={subNavItemClass} onClick={onClose}>
+              <Camera className="at-nav-icon" style={{ width: 16, height: 16 }} />
+              <span>Camera Feed</span>
+            </NavLink>
+            <NavLink to="/vision" className={subNavItemClass} onClick={onClose}>
+              <Sprout className="at-nav-icon" style={{ width: 16, height: 16 }} />
+              <span>Crop Vision Scanner</span>
+            </NavLink>
+            <NavLink to="/sensors" className={subNavItemClass} onClick={onClose}>
+              <Radio className="at-nav-icon" style={{ width: 16, height: 16 }} />
+              <span>Sensor Units</span>
+            </NavLink>
+          </>
+        )}
 
-        {/* ── TIER 3: ADMINISTRATION (ADMIN ONLY) ──────────── */}
+        {/* ADMINISTRATION (Admin Only) */}
         {isAdmin && (
-          <div className="border-t border-slate-800/80 pt-3">
-            <button
-              onClick={() => setAdminOpen(!adminOpen)}
-              className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-extrabold text-slate-400 uppercase tracking-widest hover:text-slate-200 transition-colors cursor-pointer"
-            >
-              <span>ADMINISTRATION</span>
-              {adminOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            </button>
+          <>
+            <span className="at-sidebar-section-label" style={{ marginTop: 4 }}>
+              <button
+                onClick={() => setAdminOpen(!adminOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--color-text-muted)',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  padding: 0,
+                }}
+              >
+                Administration
+                {adminOpen
+                  ? <ChevronDown style={{ width: 12, height: 12 }} />
+                  : <ChevronRight style={{ width: 12, height: 12 }} />
+                }
+              </button>
+            </span>
 
             {adminOpen && (
-              <div className="mt-1 space-y-1 pl-1">
+              <>
                 <NavLink to="/db-monitor" className={subNavItemClass} onClick={onClose}>
-                  <Database className="w-4 h-4 text-indigo-400" />
+                  <Database className="at-nav-icon" style={{ width: 16, height: 16 }} />
                   <span>System Health</span>
                 </NavLink>
                 <NavLink to="/developer-tools" className={subNavItemClass} onClick={onClose}>
-                  <Cpu className="w-4 h-4 text-purple-400" />
+                  <Cpu className="at-nav-icon" style={{ width: 16, height: 16 }} />
                   <span>Developer Tools</span>
                 </NavLink>
                 <NavLink to="/users" className={subNavItemClass} onClick={onClose}>
-                  <Users className="w-4 h-4 text-indigo-400" />
+                  <Users className="at-nav-icon" style={{ width: 16, height: 16 }} />
                   <span>User Management</span>
                 </NavLink>
                 <NavLink to="/farm-management/crops" className={subNavItemClass} onClick={onClose}>
-                  <FolderKanban className="w-4 h-4 text-indigo-400" />
+                  <FolderKanban className="at-nav-icon" style={{ width: 16, height: 16 }} />
                   <span>Plots & Crop Config</span>
                 </NavLink>
                 <NavLink to="/farm-management/audit-log" className={subNavItemClass} onClick={onClose}>
-                  <FileText className="w-4 h-4 text-indigo-400" />
+                  <FileText className="at-nav-icon" style={{ width: 16, height: 16 }} />
                   <span>Field Audit Log</span>
                 </NavLink>
-              </div>
+              </>
             )}
-          </div>
+          </>
         )}
-      </div>
+      </nav>
 
-      {/* User Footer */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-base text-emerald-400 shrink-0">
-            {userProfile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+      {/* ── Sustainable Farms Banner matching Reference ── */}
+      <div
+        style={{
+          margin: '12px 12px 8px',
+          padding: '14px 16px',
+          borderRadius: 'var(--radius-xl)',
+          background: 'linear-gradient(145deg, #f0fdf4 0%, #dcfce7 100%)',
+          border: '1px solid #bbf7d0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 'var(--radius-lg)',
+            background: 'var(--color-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            boxShadow: '0 2px 6px rgba(22, 163, 74, 0.25)',
+          }}
+        >
+          <Leaf style={{ width: 16, height: 16, color: 'white' }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--color-primary-text)', lineHeight: 1.2 }}>
+            Sustainable Farms
           </div>
-          <div className="truncate">
-            <span className="text-sm font-bold text-white block truncate">{userProfile?.full_name || 'System User'}</span>
-            <span className="text-[11px] font-black uppercase text-emerald-400 block tracking-wider">{role || 'farmer'}</span>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-primary)', lineHeight: 1.2 }}>
+            Smarter Futures
           </div>
         </div>
+      </div>
 
+      {/* ── User Footer ── */}
+      <div className="at-sidebar-footer">
+        <div className="at-avatar">
+          {userProfile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="at-truncate" style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>
+            {userProfile?.full_name || 'Researcher'}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 600, textTransform: 'capitalize' }}>
+            {role || 'Researcher'}
+          </div>
+        </div>
         <button
           onClick={handleLogout}
+          className="at-btn-icon"
+          style={{ border: 'none', color: 'var(--color-text-muted)', background: 'transparent' }}
           title="Sign Out"
-          className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+          aria-label="Sign out"
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut style={{ width: 16, height: 16 }} />
         </button>
       </div>
     </aside>
