@@ -7,6 +7,8 @@ import {
   Bell,
   Search,
   ChevronDown,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useAgriStore } from '../../context/AgriStore';
 import { useAuth } from '../../context/AuthContext';
@@ -20,6 +22,40 @@ const GlobalTopBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean }>
   } = useAgriStore();
 
   const { userProfile, role, isAdmin } = useAuth();
+
+  const [isDark, setIsDark] = React.useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('agritwin_theme');
+      return stored === 'dark' || document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+    return false;
+  });
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (typeof window !== 'undefined') {
+      const themeVal = next ? 'dark' : 'light';
+      localStorage.setItem('agritwin_theme', themeVal);
+      document.documentElement.setAttribute('data-theme', themeVal);
+      if (next) {
+        document.body.classList.add('dark');
+      } else {
+        document.body.classList.remove('dark');
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('agritwin_theme');
+      if (stored === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.body.classList.add('dark');
+        setIsDark(true);
+      }
+    }
+  }, []);
 
   const activeAlertCount = alerts.filter((a) => a.status === 'active').length;
   const criticalAlertCount = alerts.filter((a) => a.status === 'active' && a.severity === 'critical').length;
@@ -192,6 +228,31 @@ const GlobalTopBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean }>
             </span>
           )}
         </Link>
+
+        {/* Dark Mode / Light Mode Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="at-btn-icon"
+          style={{
+            height: 36,
+            width: 36,
+            borderRadius: 'var(--radius-lg)',
+            background: 'var(--color-surface-muted)',
+            border: '1px solid var(--color-border)',
+            color: isDark ? '#fbbf24' : 'var(--color-text-secondary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            transition: 'all 0.15s ease',
+          }}
+          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          id="at-theme-toggle-btn"
+        >
+          {isDark ? <Sun style={{ width: 16, height: 16 }} /> : <Moon style={{ width: 16, height: 16 }} />}
+        </button>
 
         {/* User Pill from Reference ("Welcome Researcher ▾") */}
         <div

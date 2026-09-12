@@ -263,7 +263,7 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* ── TOP KPI ROW: Farm Health Score + 4 Dimensions (Matching Reference) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) repeat(4, 1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
         
         {/* Farm Health Score Gauge Card */}
         <div
@@ -419,7 +419,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* ── MIDDLE ROW: Farm Digital Twin Map + Alerts & Notifications (Matching Reference) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(320px, 1fr)', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, alignItems: 'start' }}>
         
         {/* Farm Digital Twin Card */}
         <div className="at-card" style={{ padding: '18px 20px' }}>

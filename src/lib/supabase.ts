@@ -357,17 +357,19 @@ export function subscribeToSupabaseMultiTable(
   let destroyed = false;
 
   // Hydrate telemetry state
-  supabase
-    .from('telemetry_observations')
-    .select('*')
-    .order('measurement_timestamp', { ascending: false })
-    .limit(100)
-    .then(({ data, error }) => {
+  Promise.resolve(
+    supabase
+      .from('telemetry_observations')
+      .select('*')
+      .order('measurement_timestamp', { ascending: false })
+      .limit(100)
+  )
+    .then(({ data, error }: any) => {
       if (!error && data && data.length > 0) {
         onTelemetry(data.map(mapSupabaseRowToObs));
       }
     })
-    .catch((err) => {
+    .catch((err: any) => {
       console.warn('[SUPABASE HYDRATE NOTICE]', err?.message || 'Using local in-memory fallback.');
     });
 

@@ -15,7 +15,7 @@ import {
 } from '../lib/supabase';
 import { telemetrySimulator } from '../services/telemetrySimulator';
 import { SEEDED_FARMS, SEEDED_PLOTS, SEEDED_SENSORS, generateSeededTelemetry, seedMultiFarmSystemToSupabase } from '../lib/multi-farm-seeder';
-import { ActivityLogger, setActivityCallback, seedActivityLog } from '../lib/activity-logger';
+import { ActivityLogger, setActivityCallback, seedActivityLog, logActivity } from '../lib/activity-logger';
 import { evaluatePlotAlerts, evaluateSensorAlerts } from '../lib/alert-engine';
 
 export const STORE_KEYS = {
@@ -571,7 +571,12 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ? `Purged ${memoryDeleted} records from local session (Supabase error: ${error.message})`
       : `Successfully purged ${totalPurged} SIMULATED telemetry observation(s) from database & session.`;
 
-    ActivityLogger.plotUpdated('ALL', `Admin purged ${totalPurged} simulated records. Database restored to clean state.`);
+    logActivity({
+      eventType: 'system_event',
+      title: 'Telemetry Purged',
+      description: `Admin purged ${totalPurged} simulated records. Database restored to clean state.`,
+      severity: 'info'
+    });
     return { count: totalPurged, message: msg };
   };
 

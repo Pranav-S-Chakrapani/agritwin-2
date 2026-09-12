@@ -33,6 +33,22 @@ export const DataSourceBadge: React.FC<DataSourceBadgeProps> = ({ source = 'MANU
         </span>
       );
 
+    case 'SIMULATED':
+      return (
+        <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs ${className}`}>
+          <Radio className="w-3 h-3 text-emerald-500 animate-pulse" />
+          <span>SIMULATED</span>
+        </span>
+      );
+
+    case 'LIVE_SENSOR':
+      return (
+        <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200 shadow-2xs ${className}`}>
+          <Radio className="w-3 h-3 text-sky-500 animate-pulse" />
+          <span>LIVE SENSOR</span>
+        </span>
+      );
+
     case 'DERIVED':
       return (
         <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs ${className}`}>
@@ -50,7 +66,11 @@ export const DataSourceBadge: React.FC<DataSourceBadgeProps> = ({ source = 'MANU
       );
 
     default:
-      return null;
+      return (
+        <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs ${className}`}>
+          <span>{source}</span>
+        </span>
+      );
   }
 };
 

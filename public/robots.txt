@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /db-monitor
+Disallow: /developer-tools
+
+Sitemap: https://agritwin-2.onrender.com/sitemap.xml

@@ -1,4 +1,4 @@
-﻿import { FieldActivity, TelemetryObservation, FarmAlert, ExportFilter, IoTSensor } from '../types';
+import { FieldActivity, TelemetryObservation, FarmAlert, ExportFilter, IoTSensor } from '../types';
 import { ActivityLogger } from './activity-logger';
 
 function escapeCsv(val: unknown): string {
@@ -26,6 +26,43 @@ function downloadFile(content: string, filename: string, mimeType = 'text/csv') 
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function buildExcelXmlString(title: string, headers: string[], rows: unknown[][]): string {
+  const tableHeaders = headers
+    .map(
+      (h) =>
+        `<th style="background-color:#16a34a;color:#ffffff;font-weight:bold;padding:8px;border:1px solid #cbd5e1;">${h}</th>`
+    )
+    .join('');
+  const tableRows = rows
+    .map(
+      (r) =>
+        `<tr>${r
+          .map(
+            (cell) =>
+              `<td style="padding:6px;border:1px solid #e2e8f0;">${
+                cell !== null && cell !== undefined ? String(cell) : ''
+              }</td>`
+          )
+          .join('')}</tr>`
+    )
+    .join('');
+  return `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>${title}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+      <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8"/>
+    </head>
+    <body>
+      <h2>AgriTwin — ${title}</h2>
+      <table>
+        <thead><tr>${tableHeaders}</tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </body>
+    </html>
+  `;
 }
 
 function applyDateFilter<T extends { timestamp?: string; createdAt?: string; measurementTimestamp?: string }>(
@@ -75,9 +112,14 @@ export function exportActivityLog(
     a.createdBy || '',
   ]);
 
-  const csv = buildCsvString(headers, rows);
   const date = new Date().toISOString().split('T')[0];
-  downloadFile(csv, `agritwin_activity_log_${date}.csv`);
+  if (filter.format === 'excel') {
+    const excelXml = buildExcelXmlString('Activity Log', headers, rows);
+    downloadFile(excelXml, `agritwin_activity_log_${date}.xls`, 'application/vnd.ms-excel');
+  } else {
+    const csv = buildCsvString(headers, rows);
+    downloadFile(csv, `agritwin_activity_log_${date}.csv`);
+  }
 
   ActivityLogger.csvExported('Activity Log', filtered.length, exportedBy);
 }
@@ -116,9 +158,14 @@ export function exportTelemetry(
     o.notes || '',
   ]);
 
-  const csv = buildCsvString(headers, rows);
   const date = new Date().toISOString().split('T')[0];
-  downloadFile(csv, `agritwin_field_sensor_data_${date}.csv`);
+  if (filter.format === 'excel') {
+    const excelXml = buildExcelXmlString('Field Telemetry Data', headers, rows);
+    downloadFile(excelXml, `agritwin_field_sensor_data_${date}.xls`, 'application/vnd.ms-excel');
+  } else {
+    const csv = buildCsvString(headers, rows);
+    downloadFile(csv, `agritwin_field_sensor_data_${date}.csv`);
+  }
 
   ActivityLogger.csvExported('Field Sensor Data', filtered.length, exportedBy);
 }
@@ -167,9 +214,14 @@ export function exportAlerts(
     a.resolvedBy || '',
   ]);
 
-  const csv = buildCsvString(headers, rows);
   const date = new Date().toISOString().split('T')[0];
-  downloadFile(csv, `agritwin_alerts_${date}.csv`);
+  if (filter.format === 'excel') {
+    const excelXml = buildExcelXmlString('Farm Alerts', headers, rows);
+    downloadFile(excelXml, `agritwin_alerts_${date}.xls`, 'application/vnd.ms-excel');
+  } else {
+    const csv = buildCsvString(headers, rows);
+    downloadFile(csv, `agritwin_alerts_${date}.csv`);
+  }
 
   ActivityLogger.csvExported('Alerts', filtered.length, exportedBy);
 }

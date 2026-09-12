@@ -6,11 +6,13 @@ import {
   CheckCircle2,
   Clock,
   Database,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useAgriStore } from '../context/AgriStore';
 import { DataSourceBadge } from '../components/common/DataSourceBadge';
 import { PrototypeModeBanner } from '../components/common/PrototypeModeBanner';
 import { SensorProvenance } from '../components/common/SensorProvenance';
+import { exportTelemetry } from '../lib/csv-exporter';
 
 export const FieldLog: React.FC = () => {
   const { telemetryObservations, activeSections, activeFarmland } = useAgriStore();
@@ -42,17 +44,9 @@ export const FieldLog: React.FC = () => {
     });
   }, [allObservations, selectedPlot, selectedSource, selectedParam, searchQuery, activeSections]);
 
-  const handleExportCSV = () => {
+  const handleExport = (format: 'csv' | 'excel') => {
     const recordsToExport = filteredRecords.length > 0 ? filteredRecords : allObservations;
-    const headers = ['Observation ID', 'Timestamp', 'Farm ID', 'Plot ID', 'Device ID', 'Parameter Key', 'Display Name', 'Value', 'Unit', 'Data Source', 'Quality'];
-    const rows = recordsToExport.map(r => [r.id, `"${r.measurementTimestamp}"`, `"${r.farmId || ''}"`, `"${r.plotId}"`, `"${r.deviceId || ''}"`, `"${r.parameterKey}"`, `"${r.displayName}"`, r.value, `"${r.unit}"`, `"${r.dataSource}"`, `"${r.qualityStatus}"`]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-    const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csvContent));
-    link.setAttribute('download', `agritwin_telemetry_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportTelemetry(recordsToExport, { format, farmId: activeFarmland?.id });
   };
 
   return (
@@ -77,10 +71,16 @@ export const FieldLog: React.FC = () => {
             {' '}of <strong style={{ color: 'var(--color-text-primary)' }}>{allObservations.length}</strong> records
           </p>
         </div>
-        <button onClick={handleExportCSV} className="at-btn at-btn-secondary" id="at-export-telemetry-btn">
-          <Download style={{ width: 15, height: 15 }} />
-          Download CSV
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => handleExport('csv')} className="at-btn at-btn-primary" id="at-export-telemetry-btn">
+            <Download style={{ width: 15, height: 15 }} />
+            CSV ({filteredRecords.length})
+          </button>
+          <button onClick={() => handleExport('excel')} className="at-btn at-btn-secondary" id="at-export-telemetry-excel-btn">
+            <FileSpreadsheet style={{ width: 15, height: 15 }} />
+            Excel
+          </button>
+        </div>
       </div>
 
       {/* ── Filters ── */}

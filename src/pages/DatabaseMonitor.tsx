@@ -21,6 +21,7 @@ import { useAgriStore } from '../context/AgriStore';
 import { checkSupabaseConnection, SupabaseConnectionStatus } from '../lib/supabase-health';
 import { getSupabaseTableCounts, isSupabaseConfigured } from '../lib/supabase';
 import { SensorProvenance } from '../components/common/SensorProvenance';
+import { DataSourceBadge } from '../components/common/DataSourceBadge';
 import { exportTelemetry } from '../lib/csv-exporter';
 
 export const DatabaseMonitor: React.FC = () => {
@@ -299,7 +300,7 @@ export const DatabaseMonitor: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-2.5 px-3">
-                    <SensorProvenance source={obs.dataSource} />
+                    <DataSourceBadge source={obs.dataSource} />
                   </td>
                 </tr>
               ))}

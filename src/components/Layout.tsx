@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewMode } from '../types';
-import { LayoutDashboard, Box, Camera, TrendingUp, Apple, Sprout, Activity, Bell, LogOut, Menu, X, Leaf } from 'lucide-react';
+import { LucideIcon, LayoutDashboard, Box, Camera, TrendingUp, Apple, Sprout, Activity, Bell, LogOut, Menu, X, Leaf } from 'lucide-react';
 
 interface Props {
   currentView: ViewMode;
@@ -9,7 +9,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-const NAV_ITEMS: { id: ViewMode; label: string; icon: React.ElementType }[] = [
+const NAV_ITEMS: { id: ViewMode; label: string; icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Main Dashboard', icon: LayoutDashboard },
   { id: 'twin', label: 'Digital Twin', icon: Box },
   { id: 'disease', label: 'Disease Detection', icon: Camera },
