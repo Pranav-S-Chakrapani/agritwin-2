@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   MapPin,
@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Building2,
-  Cpu,
   RefreshCw,
   Search,
   ChevronDown,
@@ -21,20 +20,31 @@ import {
   Radio,
   Wind,
   ArrowRight,
-  TrendingUp,
-  TrendingDown,
   Layers,
   Sun,
   CloudRain,
-  Compass,
-  Crosshair,
   Plus,
   Minus,
   CheckSquare,
   Square,
   Clock,
   Sparkles,
-  SlidersHorizontal,
+  Signal,
+  SignalZero,
+  Cpu,
+  FlaskConical,
+  Filter,
+  Download,
+  ChevronUp,
+  Crosshair,
+  TrendingUp,
+  TrendingDown,
+  FileText,
+  AlertTriangle,
+  Wifi,
+  WifiOff,
+  Gauge,
+  Leaf,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -111,13 +121,127 @@ const ChartTooltip = ({ active, payload, label }: any) => {
       {payload.map((p: any, i: number) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, color: p.color || 'var(--color-primary)', fontWeight: 600 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color || 'var(--color-primary)', flexShrink: 0 }} />
-          <span>{p.name || 'Moisture'}: <strong>{p.value}%</strong></span>
+          <span>{p.name || 'Value'}: <strong>{p.value}%</strong></span>
         </div>
       ))}
     </div>
   );
 };
 
+// ── Reusable KPI Card ──────────────────────────────────────────────────────────
+interface KpiCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  subtext?: string;
+  accent?: string;
+  id: string;
+  trend?: 'up' | 'down' | 'neutral';
+}
+
+const KpiCard: React.FC<KpiCardProps> = ({ icon, label, value, subtext, accent = 'var(--color-primary)', id, trend }) => (
+  <div
+    id={id}
+    style={{
+      background: 'var(--color-surface)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius-xl)',
+      padding: '14px 16px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      boxShadow: 'var(--shadow-xs)',
+      transition: 'box-shadow 0.15s, transform 0.15s',
+      cursor: 'default',
+    }}
+    onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+    onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-xs)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 'var(--radius-lg)',
+          background: `${accent}18`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ color: accent }}>{icon}</div>
+      </div>
+      {trend && (
+        <div style={{ color: trend === 'up' ? 'var(--color-success)' : trend === 'down' ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+          {trend === 'up' ? <TrendingUp style={{ width: 14, height: 14 }} /> : trend === 'down' ? <TrendingDown style={{ width: 14, height: 14 }} /> : null}
+        </div>
+      )}
+    </div>
+    <div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', marginTop: 2, lineHeight: 1.3 }}>
+        {label}
+      </div>
+      {subtext && (
+        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 1 }}>{subtext}</div>
+      )}
+    </div>
+  </div>
+);
+
+// ── Plot Status Color ──────────────────────────────────────────────────────────
+function getPlotStatus(plot: any): { label: string; color: string; bg: string; border: string } {
+  const moisture = plot.soilMoisture ?? 50;
+  const temp = plot.airTemp ?? 25;
+  const ph = plot.soilPh ?? 6.5;
+
+  const isCritical = moisture < 25 || moisture > 85 || temp > 38 || ph < 5.0 || ph > 8.5;
+  const isWarning = moisture < 35 || moisture > 75 || temp > 34 || ph < 5.5 || ph > 7.8;
+
+  if (isCritical) return { label: 'Critical', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' };
+  if (isWarning) return { label: 'Warning', color: '#d97706', bg: '#fffbeb', border: '#fde68a' };
+  return { label: 'Healthy', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' };
+}
+
+// ── Sensor type configuration ──────────────────────────────────────────────────
+const SENSOR_TYPE_CONFIG: Record<string, { emoji: string; unit: string; label: string; color: string; accent: string }> = {
+  'soil_moisture': { emoji: '💧', unit: '%', label: 'Soil Moisture', color: '#0284c7', accent: '#e0f2fe' },
+  'temperature': { emoji: '🌡️', unit: '°C', label: 'Temperature', color: '#d97706', accent: '#fef3c7' },
+  'humidity': { emoji: '💨', unit: '%', label: 'Humidity', color: '#0d9488', accent: '#f0fdfa' },
+  'ph': { emoji: '🧪', unit: '', label: 'Soil pH', color: '#7c3aed', accent: '#ede9fe' },
+  'nutrients': { emoji: '🌱', unit: 'ppm', label: 'Nutrients', color: '#16a34a', accent: '#dcfce7' },
+  'default': { emoji: '📡', unit: '', label: 'Sensor', color: '#475569', accent: '#f1f5f9' },
+};
+
+function getSensorTypeConfig(sensorType?: string) {
+  if (!sensorType) return SENSOR_TYPE_CONFIG.default;
+  const key = sensorType.toLowerCase().replace(/\s+/g, '_');
+  return SENSOR_TYPE_CONFIG[key] || SENSOR_TYPE_CONFIG.default;
+}
+
+// ── Field log CSV export ───────────────────────────────────────────────────────
+function exportToCsv(rows: any[], filename: string) {
+  if (!rows.length) return;
+  const headers = Object.keys(rows[0]);
+  const csv = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(',')),
+  ].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN DASHBOARD COMPONENT
+// ══════════════════════════════════════════════════════════════════════════════
 export const Dashboard: React.FC = () => {
   const {
     farmlands,
@@ -126,6 +250,7 @@ export const Dashboard: React.FC = () => {
     alerts,
     activeFarmland,
     activeSections,
+    fieldActivities,
     telemetryObservations,
     seedMultiFarmSystem,
   } = useAgriStore();
@@ -145,11 +270,10 @@ export const Dashboard: React.FC = () => {
     'Erosion Risk': false,
   });
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
-  const [digitalTwinView, setDigitalTwinView] = useState('Crop Health');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [expandedFarms, setExpandedFarms] = useState<Record<string, boolean>>({
-    farm_iiit_dharwad: true,
-  });
+  const [logFarmFilter, setLogFarmFilter] = useState('all');
+  const [logSensorFilter, setLogSensorFilter] = useState('all');
+  const [logDateFilter, setLogDateFilter] = useState('');
+  const [expandedPlot, setExpandedPlot] = useState<string | null>(null);
 
   const handleToggleLayer = (layer: string) => {
     setActiveLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
@@ -174,61 +298,104 @@ export const Dashboard: React.FC = () => {
     return SENSOR_TRENDS_24H;
   }, [trendRange]);
 
-  const activeFarmPlots = useMemo(() => PlotService.getPlotsForFarm(plots, activeFarmland?.id), [plots, activeFarmland]);
-  const activeFarmSensorCounts = useMemo(() => SensorService.getSensorCountsForFarm(sensors, activeFarmland?.id), [sensors, activeFarmland]);
+  // ── Global Counts ──────────────────────────────────────────────────────────
   const globalSensorCounts = useMemo(() => SensorService.getGlobalSensorCounts(sensors), [sensors]);
   const activeAlertsCount = useMemo(() => alerts.filter(a => a.status === 'active').length, [alerts]);
   const criticalAlertsCount = useMemo(() => alerts.filter(a => a.status === 'active' && a.severity === 'critical').length, [alerts]);
 
-  const telemetryPerFarmData = useMemo(() =>
-    farmlands.map(f => ({
-      name: f.name.split(' ')[0],
-      records: telemetryObservations.filter(o => o.farmId === f.id).length || 200,
-    })), [farmlands, telemetryObservations]);
+  // ── Active Farm Data ───────────────────────────────────────────────────────
+  const activeFarmPlots = useMemo(() => PlotService.getPlotsForFarm(plots, activeFarmland?.id), [plots, activeFarmland]);
+  const activeFarmSensors = useMemo(() => SensorService.getSensorsForFarm(sensors, activeFarmland?.id), [sensors, activeFarmland]);
+  const activeFarmSensorCounts = useMemo(() => SensorService.getSensorCountsForFarm(sensors, activeFarmland?.id), [sensors, activeFarmland]);
 
-  const sensorDistData = useMemo(() =>
-    farmlands.map(f => {
-      const counts = SensorService.getSensorCountsForFarm(sensors, f.id);
-      return { name: f.name.split(' ')[0], total: counts.total || 30, online: counts.active || 29 };
-    }), [farmlands, sensors]);
+  // Irrigation status from plots
+  const irrigatingPlots = useMemo(() =>
+    activeFarmPlots.filter(p => p.isWatering || p.irrigationStatus === 'Active Drip' || p.irrigationStatus === 'Automated Sprinkler').length,
+    [activeFarmPlots]
+  );
 
-  const cropDistData = useMemo(() => {
-    const map: Record<string, number> = {};
-    plots.forEach(p => { const crop = p.cropType || 'Wheat'; map[crop] = (map[crop] || 0) + 1; });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [plots]);
+  // Farm health score (avg soil health)
+  const farmHealthScore = useMemo(() => {
+    if (!activeFarmPlots.length) return 82;
+    const avg = activeFarmPlots.reduce((acc, p) => acc + (p.soilHealthScore || 80), 0) / activeFarmPlots.length;
+    return Math.round(avg);
+  }, [activeFarmPlots]);
 
-  const moistureCompareData = useMemo(() =>
-    farmlands.map(f => {
-      const fPlots = plots.filter(p => p.farmId === f.id);
-      const avgM = fPlots.length > 0 ? fPlots.reduce((acc, p) => acc + p.soilMoisture, 0) / fPlots.length : 48;
-      return { name: f.name.split(' ')[0], avgMoisture: Number(avgM.toFixed(1)) };
-    }), [farmlands, plots]);
+  // Crop types in active farm
+  const cropTypes = useMemo(() => {
+    const set = new Set(activeFarmPlots.map(p => p.cropType).filter(Boolean));
+    return Array.from(set) as string[];
+  }, [activeFarmPlots]);
+
+  // ── Field Log Data ─────────────────────────────────────────────────────────
+  const filteredLogs = useMemo(() => {
+    let logs = [...(fieldActivities || [])].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    if (logFarmFilter !== 'all') logs = logs.filter(l => l.farmId === logFarmFilter);
+    if (logSensorFilter !== 'all') logs = logs.filter(l => l.sensorId === logSensorFilter);
+    if (logDateFilter) {
+      const d = new Date(logDateFilter);
+      logs = logs.filter(l => {
+        const ld = new Date(l.timestamp);
+        return ld.toDateString() === d.toDateString();
+      });
+    }
+    return logs.slice(0, 50);
+  }, [fieldActivities, logFarmFilter, logSensorFilter, logDateFilter]);
+
+  const handleCsvExport = () => {
+    const rows = filteredLogs.map(l => ({
+      Timestamp: new Date(l.timestamp).toLocaleString(),
+      Farm: farmlands.find(f => f.id === l.farmId)?.name || l.farmId || '—',
+      Plot: l.plotId || '—',
+      Sensor: l.sensorId || '—',
+      Action: l.eventType,
+      Title: l.title,
+      Description: l.description,
+      Severity: l.severity,
+    }));
+    exportToCsv(rows, `agritwin-field-log-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const severityColor = (sev: string) => {
+    if (sev === 'critical') return '#dc2626';
+    if (sev === 'warning') return '#d97706';
+    if (sev === 'success') return '#16a34a';
+    return '#0284c7';
+  };
+
+  // ── Timestamp format ───────────────────────────────────────────────────────
+  const fmtTime = (ts: string) => {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+  const fmtDate = (ts: string) => {
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* ── Page Title Header with Reference Quote ── */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          PAGE HEADER
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <h1 className="at-page-title" style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)' }}>
-            Dashboard
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            Farm Control Center
           </h1>
-          <p className="at-page-subtitle" style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 2 }}>
-            Real-time insights from your farm's digital twin
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 3, margin: 0 }}>
+            {activeFarmland
+              ? <>Viewing: <strong style={{ color: 'var(--color-primary)' }}>{activeFarmland.name}</strong> — {activeFarmland.location}</>
+              : 'Select a farm from the sidebar to begin'
+            }
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div
             className="at-hide-mobile"
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'var(--color-primary-text)',
-              fontStyle: 'normal',
-              letterSpacing: '-0.01em',
-            }}
+            style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary-text)', fontStyle: 'italic' }}
           >
             "Data Today. Better Harvests Tomorrow."
           </div>
@@ -237,11 +404,11 @@ export const Dashboard: React.FC = () => {
             disabled={seeding}
             className="at-btn at-btn-primary at-btn-sm"
             id="at-seed-btn"
-            style={{ padding: '6px 14px' }}
+            style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             {seeding
-              ? <RefreshCw style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} />
-              : <Zap style={{ width: 13, height: 13 }} />
+              ? <RefreshCw style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
+              : <Zap style={{ width: 14, height: 14 }} />
             }
             {seeding ? 'Seeding...' : 'Load Demo Data'}
           </button>
@@ -252,397 +419,586 @@ export const Dashboard: React.FC = () => {
         <div className="at-alert success" style={{ alignItems: 'center', padding: '10px 16px' }}>
           <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0 }} />
           <span style={{ flex: 1, fontSize: 13 }}>{seedNotice}</span>
-          <button
-            onClick={() => setSeedNotice(null)}
-            className="at-btn at-btn-ghost at-btn-sm"
-            style={{ padding: '2px 8px', fontSize: 12 }}
-          >
+          <button onClick={() => setSeedNotice(null)} className="at-btn at-btn-ghost at-btn-sm" style={{ padding: '2px 8px', fontSize: 12 }}>
             Dismiss
           </button>
         </div>
       )}
 
-      {/* ── TOP KPI ROW: Farm Health Score + 4 Dimensions (Matching Reference) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-        
-        {/* Farm Health Score Gauge Card */}
-        <div
-          className="at-card"
-          style={{
-            background: 'var(--color-surface)',
-            padding: '16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
-            Farm Health Score
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '8px 0' }}>
-            {/* Circular progress SVG */}
-            <div style={{ position: 'relative', width: 72, height: 72, flexShrink: 0 }}>
-              <svg width="72" height="72" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#e2e8f0"
-                  strokeWidth="3.2"
-                />
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="var(--color-primary)"
-                  strokeWidth="3.2"
-                  strokeDasharray="82, 100"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  lineHeight: 1,
-                }}
-              >
-                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-text-primary)' }}>82</span>
-                <span style={{ fontSize: 9, color: 'var(--color-text-muted)', marginTop: 2 }}>/ 100</span>
-              </div>
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-primary)', fontWeight: 700, fontSize: 13 }}>
-                <Sprout style={{ width: 14, height: 14 }} />
-                Good
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4, lineHeight: 1.3 }}>
-                Overall condition of your farm is healthy.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Soil Dimension Card */}
-        <div className="at-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 14 }}>🪵</span>
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Soil</span>
-          </div>
-          <div style={{ margin: '8px 0 4px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-primary)' }}>86</span>
-              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>/ 100</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-primary)', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)' }} />
-              Good
-            </div>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
-            Soil conditions are optimal.
-          </div>
-        </div>
-
-        {/* Water Dimension Card */}
-        <div className="at-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Droplets style={{ width: 14, height: 14, color: '#0284c7' }} />
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Water</span>
-          </div>
-          <div style={{ margin: '8px 0 4px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-primary)' }}>74</span>
-              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>/ 100</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-warning)', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
-              <span>◆</span> Moderate
-            </div>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
-            Irrigation attention needed in some zones.
-          </div>
-        </div>
-
-        {/* Climate Dimension Card */}
-        <div className="at-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Sun style={{ width: 14, height: 14, color: '#d97706' }} />
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Climate</span>
-          </div>
-          <div style={{ margin: '8px 0 4px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-primary)' }}>88</span>
-              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>/ 100</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-primary)', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)' }} />
-              Good
-            </div>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
-            Temperature and humidity are within ideal range.
-          </div>
-        </div>
-
-        {/* Crop Dimension Card */}
-        <div className="at-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Sprout style={{ width: 14, height: 14, color: 'var(--color-primary)' }} />
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Crop</span>
-          </div>
-          <div style={{ margin: '8px 0 4px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-primary)' }}>81</span>
-              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>/ 100</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-primary)', fontSize: 11, fontWeight: 700, marginTop: 2 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)' }} />
-              Good
-            </div>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
-            Crops are growing well with no major stress.
-          </div>
-        </div>
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          SECTION 1 — TOP KPI BAR (8 Cards)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div
+        id="at-kpi-bar"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+          gap: 12,
+        }}
+      >
+        <KpiCard
+          id="kpi-total-farms"
+          icon={<Building2 style={{ width: 17, height: 17 }} />}
+          label="Total Farms"
+          value={farmlands.length}
+          subtext={farmlands.length === 0 ? 'Load demo data' : `${farmlands.length} registered`}
+          accent="#16a34a"
+          trend="neutral"
+        />
+        <KpiCard
+          id="kpi-total-plots"
+          icon={<Layers style={{ width: 17, height: 17 }} />}
+          label="Total Plots"
+          value={plots.length}
+          subtext={activeFarmPlots.length > 0 ? `${activeFarmPlots.length} in active farm` : undefined}
+          accent="#0284c7"
+        />
+        <KpiCard
+          id="kpi-total-sensors"
+          icon={<Radio style={{ width: 17, height: 17 }} />}
+          label="Total Sensors"
+          value={sensors.length}
+          subtext={`${globalSensorCounts.active} online`}
+          accent="#7c3aed"
+        />
+        <KpiCard
+          id="kpi-active-alerts"
+          icon={<Bell style={{ width: 17, height: 17 }} />}
+          label="Active Alerts"
+          value={activeAlertsCount}
+          subtext={criticalAlertsCount > 0 ? `${criticalAlertsCount} critical` : 'All clear'}
+          accent={activeAlertsCount > 0 ? '#dc2626' : '#16a34a'}
+          trend={activeAlertsCount > 0 ? 'up' : 'neutral'}
+        />
+        <KpiCard
+          id="kpi-irrigation"
+          icon={<Droplets style={{ width: 17, height: 17 }} />}
+          label="Irrigation"
+          value={irrigatingPlots > 0 ? `${irrigatingPlots} Active` : 'Idle'}
+          subtext={`${activeFarmPlots.length} plots`}
+          accent="#0d9488"
+        />
+        <KpiCard
+          id="kpi-telemetry"
+          icon={<BarChart3 style={{ width: 17, height: 17 }} />}
+          label="Telemetry Records"
+          value={telemetryObservations.length > 999 ? `${(telemetryObservations.length / 1000).toFixed(1)}k` : telemetryObservations.length}
+          subtext="Total observations"
+          accent="#d97706"
+        />
+        <KpiCard
+          id="kpi-online-sensors"
+          icon={<Wifi style={{ width: 17, height: 17 }} />}
+          label="Online Sensors"
+          value={globalSensorCounts.active}
+          subtext="Transmitting live"
+          accent="#16a34a"
+          trend="up"
+        />
+        <KpiCard
+          id="kpi-offline-sensors"
+          icon={<WifiOff style={{ width: 17, height: 17 }} />}
+          label="Offline Sensors"
+          value={globalSensorCounts.offline}
+          subtext={globalSensorCounts.offline > 0 ? 'Needs attention' : 'All connected'}
+          accent={globalSensorCounts.offline > 0 ? '#dc2626' : '#16a34a'}
+          trend={globalSensorCounts.offline > 0 ? 'down' : 'neutral'}
+        />
       </div>
 
-      {/* ── MIDDLE ROW: Farm Digital Twin Map + Alerts & Notifications (Matching Reference) ── */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          SECTION 2 — FARM OVERVIEW PANEL
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {activeFarmland ? (
+        <div
+          id="at-farm-overview"
+          style={{
+            background: 'linear-gradient(135deg, var(--color-primary-subtle) 0%, #f0fdfa 100%)',
+            border: '1px solid var(--color-primary-border)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '20px 24px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-lg)', background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Building2 style={{ width: 18, height: 18, color: 'white' }} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-primary-text)', margin: 0, letterSpacing: '-0.02em' }}>
+                    {activeFarmland.name}
+                  </h2>
+                  <div style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 500 }}>
+                    <MapPin style={{ width: 11, height: 11, display: 'inline', marginRight: 3 }} />
+                    {activeFarmland.location}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Farm Health Score Gauge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ position: 'relative', width: 64, height: 64 }}>
+                <svg width="64" height="64" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+                  <path
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none" stroke="#e2e8f0" strokeWidth="3.2"
+                  />
+                  <path
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none" stroke="var(--color-primary)" strokeWidth="3.2"
+                    strokeDasharray={`${farmHealthScore}, 100`}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--color-primary-text)' }}>{farmHealthScore}</span>
+                  <span style={{ fontSize: 8, color: 'var(--color-text-muted)' }}>/ 100</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-primary-text)' }}>Farm Health</div>
+                <div style={{ fontSize: 11, color: farmHealthScore >= 80 ? '#16a34a' : farmHealthScore >= 60 ? '#d97706' : '#dc2626', fontWeight: 700 }}>
+                  {farmHealthScore >= 80 ? '✓ Good' : farmHealthScore >= 60 ? '⚠ Moderate' : '✕ Critical'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Farm Stats Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+            {[
+              { icon: <MapPin style={{ width: 13, height: 13 }} />, label: 'Area', value: `${activeFarmland.totalArea} ${activeFarmland.unit}` },
+              { icon: <Layers style={{ width: 13, height: 13 }} />, label: 'Plots', value: activeFarmPlots.length },
+              { icon: <Radio style={{ width: 13, height: 13 }} />, label: 'Sensors', value: activeFarmSensorCounts.total },
+              { icon: <Wifi style={{ width: 13, height: 13 }} />, label: 'Online', value: activeFarmSensorCounts.active, color: '#16a34a' },
+              { icon: <WifiOff style={{ width: 13, height: 13 }} />, label: 'Offline', value: activeFarmSensorCounts.offline, color: activeFarmSensorCounts.offline > 0 ? '#dc2626' : '#94a3b8' },
+              { icon: <Bell style={{ width: 13, height: 13 }} />, label: 'Alerts', value: alerts.filter(a => a.farmId === activeFarmland.id && a.status === 'active').length, color: '#d97706' },
+            ].map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  background: 'rgba(255,255,255,0.7)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '10px 12px',
+                  border: '1px solid rgba(255,255,255,0.9)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>
+                  <span style={{ color: 'var(--color-primary)' }}>{item.icon}</span>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: (item as any).color || 'var(--color-primary-text)', letterSpacing: '-0.02em' }}>
+                  {item.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Crop Types */}
+          {cropTypes.length > 0 && (
+            <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-primary-text)' }}>
+                <Sprout style={{ width: 12, height: 12, display: 'inline', marginRight: 3 }} />
+                Crops:
+              </span>
+              {cropTypes.map(c => (
+                <span
+                  key={c}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-full)',
+                    background: 'var(--color-primary)',
+                    color: 'white',
+                  }}
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ background: 'var(--color-surface)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-xl)', padding: '32px 24px', textAlign: 'center' }}>
+          <Building2 style={{ width: 36, height: 36, color: 'var(--color-text-muted)', margin: '0 auto 12px' }} />
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-secondary)' }}>No Farm Selected</div>
+          <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 4 }}>
+            Select a farm from the sidebar, or load demo data to get started.
+          </div>
+          <button onClick={handleRunSeeder} disabled={seeding} className="at-btn at-btn-primary" style={{ marginTop: 16, display: 'inline-flex', gap: 8 }}>
+            <Zap style={{ width: 15, height: 15 }} /> Load Demo Data
+          </button>
+        </div>
+      )}
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          SECTION 3 — DEDICATED SENSOR OVERVIEW
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div id="at-sensor-overview" className="at-card" style={{ padding: '18px 20px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-lg)', background: 'var(--color-primary-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Radio style={{ width: 17, height: 17, color: 'var(--color-primary)' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>Sensor Overview</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                {activeFarmland ? `Live readings — ${activeFarmland.name}` : 'All sensors'}
+              </div>
+            </div>
+          </div>
+
+          {/* Status badges */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16a34a', animation: 'at-pulse 1.5s infinite', display: 'inline-block' }} />
+              {activeFarmSensorCounts.active} Online
+            </span>
+            {activeFarmSensorCounts.offline > 0 && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
+                <WifiOff style={{ width: 11, height: 11 }} />
+                {activeFarmSensorCounts.offline} Offline
+              </span>
+            )}
+            <Link to="/sensors" style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none', padding: '4px 10px', borderRadius: 'var(--radius-full)', border: '1px solid var(--color-primary-border)', background: 'var(--color-primary-subtle)' }}>
+              All Sensors →
+            </Link>
+          </div>
+        </div>
+
+        {/* Sensor cards grid */}
+        {activeFarmSensors.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>
+            <Radio style={{ width: 28, height: 28, margin: '0 auto 8px', display: 'block' }} />
+            No sensors found. Load demo data to see live sensor readings.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {activeFarmSensors.slice(0, 12).map((sensor) => {
+              const cfg = getSensorTypeConfig(sensor.type || (sensor.sensorTypes?.[0]));
+              const isOnline = (sensor.status || '').toLowerCase() === 'online';
+
+              return (
+                <div
+                  key={sensor.id}
+                  style={{
+                    background: isOnline ? cfg.accent : 'var(--color-surface-muted)',
+                    border: `1.5px solid ${isOnline ? cfg.color + '33' : 'var(--color-border)'}`,
+                    borderRadius: 'var(--radius-xl)',
+                    padding: '14px 16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                    position: 'relative',
+                    transition: 'transform 0.15s, box-shadow 0.15s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  {/* Status indicator */}
+                  <div style={{ position: 'absolute', top: 12, right: 12 }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: isOnline ? '#16a34a' : '#94a3b8',
+                        boxShadow: isOnline ? '0 0 0 2px #dcfce7' : 'none',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ fontSize: 22 }}>{cfg.emoji}</div>
+
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {cfg.label}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', marginTop: 1 }}>
+                      {sensor.nodeName}
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 20, fontWeight: 800, color: isOnline ? cfg.color : 'var(--color-text-muted)', letterSpacing: '-0.02em' }}>
+                    {sensor.currentReading || (isOnline ? '—' : 'Offline')}
+                    {sensor.currentReading && cfg.unit && (
+                      <span style={{ fontSize: 12, fontWeight: 600, marginLeft: 2 }}>{cfg.unit}</span>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
+                    Updated: {sensor.lastPing ? new Date(sensor.lastPing).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                  </div>
+
+                  <div style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-full)',
+                    display: 'inline-block',
+                    alignSelf: 'flex-start',
+                    background: isOnline ? '#dcfce7' : '#f1f5f9',
+                    color: isOnline ? '#15803d' : '#64748b',
+                  }}>
+                    {isOnline ? '● Live' : '○ Offline'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {activeFarmSensors.length > 12 && (
+          <div style={{ marginTop: 12, textAlign: 'center' }}>
+            <Link to="/sensors" className="at-btn at-btn-secondary at-btn-sm">
+              View all {activeFarmSensors.length} sensors →
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          SECTION 4 — PLOT MANAGEMENT CARDS
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div id="at-plot-management" className="at-card" style={{ padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-lg)', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Layers style={{ width: 17, height: 17, color: '#16a34a' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>Plot Management</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                {activeFarmPlots.length} plots in {activeFarmland?.name || 'active farm'}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[
+              { label: 'Healthy', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+              { label: 'Warning', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+              { label: 'Critical', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+            ].map(s => (
+              <span key={s.label} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>
+                ● {s.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {activeFarmPlots.length === 0 ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>
+            <Layers style={{ width: 28, height: 28, margin: '0 auto 8px', display: 'block' }} />
+            No plots found. Load demo data to see plot readings.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+            {activeFarmPlots.map((plot) => {
+              const status = getPlotStatus(plot);
+              const isExpanded = expandedPlot === plot.id;
+              const plotSensors = SensorService.getSensorsForPlot(sensors, plot.id);
+
+              return (
+                <div
+                  key={plot.id}
+                  style={{
+                    borderRadius: 'var(--radius-xl)',
+                    border: `1.5px solid ${status.border}`,
+                    background: status.bg,
+                    overflow: 'hidden',
+                    transition: 'box-shadow 0.15s, transform 0.15s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                  {/* Plot Header */}
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: status.color, color: 'white', fontFamily: 'monospace' }}>
+                          {plot.code}
+                        </span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {plot.name}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
+                        {plot.cropType || 'No crop'} · {plot.area} {plot.areaUnit || 'acres'}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 'var(--radius-full)', background: status.color, color: 'white' }}>
+                        {status.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Metrics Grid */}
+                  <div style={{ padding: '0 14px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                    {[
+                      { icon: '💧', label: 'Moisture', value: formatMoisture(plot.soilMoisture) },
+                      { icon: '🌡️', label: 'Temp', value: formatTemperature(plot.airTemp) },
+                      { icon: '🧪', label: 'pH', value: formatPh(plot.soilPh) },
+                    ].map((metric) => (
+                      <div key={metric.label} style={{ background: 'rgba(255,255,255,0.7)', padding: '6px 8px', borderRadius: 8, textAlign: 'center' }}>
+                        <div style={{ fontSize: 13 }}>{metric.icon}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 1 }}>{metric.value}</div>
+                        <div style={{ fontSize: 9, color: 'var(--color-text-muted)' }}>{metric.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Expand toggle */}
+                  <button
+                    onClick={() => setExpandedPlot(isExpanded ? null : plot.id)}
+                    style={{
+                      width: '100%',
+                      padding: '6px 14px',
+                      background: 'rgba(255,255,255,0.5)',
+                      border: 'none',
+                      borderTop: `1px solid ${status.border}`,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: status.color,
+                    }}
+                  >
+                    <span>{plotSensors.length} sensors attached</span>
+                    {isExpanded ? <ChevronUp style={{ width: 12, height: 12 }} /> : <ChevronDown style={{ width: 12, height: 12 }} />}
+                  </button>
+
+                  {/* Expanded sensors list */}
+                  {isExpanded && (
+                    <div style={{ background: 'rgba(255,255,255,0.9)', borderTop: `1px solid ${status.border}`, padding: '10px 14px' }}>
+                      {plotSensors.length === 0 ? (
+                        <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center' }}>No sensors assigned to this plot.</div>
+                      ) : (
+                        plotSensors.map(s => {
+                          const cfg = getSensorTypeConfig(s.type);
+                          const online = (s.status || '').toLowerCase() === 'online';
+                          return (
+                            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: '1px solid var(--color-border-muted)' }}>
+                              <span>{cfg.emoji}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)' }}>{s.nodeName}</div>
+                                <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{s.currentReading || '—'}</div>
+                              </div>
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 'var(--radius-full)', background: online ? '#dcfce7' : '#f1f5f9', color: online ? '#15803d' : '#64748b' }}>
+                                {online ? 'Live' : 'Offline'}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          SECTION 5 — INTERACTIVE MAP + ALERTS (side by side)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, alignItems: 'start' }}>
-        
-        {/* Farm Digital Twin Card */}
+
+        {/* Farm Digital Twin Map */}
         <div className="at-card" style={{ padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                <Building2 style={{ width: 18, height: 18, color: 'var(--color-primary)' }} />
-                Farm Digital Twin
+                <Layers style={{ width: 18, height: 18, color: 'var(--color-primary)' }} />
+                Farm Map View
               </div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>
-                Interactive view of your farm with real-time data layers
+                Click a plot zone to inspect sensors & telemetry
               </div>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 500 }}>View:</span>
-              <select
-                value={digitalTwinView}
-                onChange={(e) => setDigitalTwinView(e.target.value)}
-                className="at-input at-select"
-                style={{ height: 32, fontSize: 12, padding: '2px 28px 2px 10px', width: 'auto', fontWeight: 600 }}
-              >
-                <option value="Crop Health">Crop Health</option>
-                <option value="Soil Moisture">Soil Moisture</option>
-                <option value="Irrigation Nodes">Irrigation Nodes</option>
-                <option value="NDVI Scan">NDVI Scan</option>
-              </select>
-            </div>
+            <select
+              onChange={(e) => {}}
+              className="at-input at-select"
+              style={{ height: 32, fontSize: 12, padding: '2px 28px 2px 10px', width: 'auto', fontWeight: 600 }}
+            >
+              <option>Crop Health</option>
+              <option>Soil Moisture</option>
+              <option>Irrigation Nodes</option>
+              <option>NDVI Scan</option>
+            </select>
           </div>
 
-          {/* Interactive Map Visual + Layer Controls */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 14 }}>
-            
-            {/* Satellite Farm View with Zone Polygons */}
-            <div
-              style={{
-                position: 'relative',
-                height: 280,
-                borderRadius: 'var(--radius-xl)',
-                overflow: 'hidden',
-                background: 'linear-gradient(135deg, #1b3a24 0%, #294d30 50%, #3a633f 100%)',
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.15)',
-              }}
-            >
-              {/* Satellite Background Grid Pattern */}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  backgroundImage: `
-                    radial-gradient(circle at 30% 40%, rgba(74, 222, 128, 0.15) 0%, transparent 45%),
-                    radial-gradient(circle at 70% 70%, rgba(251, 191, 36, 0.15) 0%, transparent 40%),
-                    radial-gradient(circle at 20% 80%, rgba(248, 113, 113, 0.2) 0%, transparent 35%),
-                    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)
-                  `,
-                  backgroundSize: '100% 100%, 100% 100%, 100% 100%, 20px 20px, 20px 20px',
-                }}
-              />
+            {/* Map visual */}
+            <div style={{ position: 'relative', height: 280, borderRadius: 'var(--radius-xl)', overflow: 'hidden', background: 'linear-gradient(135deg, #1b3a24 0%, #294d30 50%, #3a633f 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.15)' }}>
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: `radial-gradient(circle at 30% 40%, rgba(74, 222, 128, 0.15) 0%, transparent 45%), radial-gradient(circle at 70% 70%, rgba(251, 191, 36, 0.15) 0%, transparent 40%), radial-gradient(circle at 20% 80%, rgba(248, 113, 113, 0.2) 0%, transparent 35%), linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)`, backgroundSize: '100% 100%, 100% 100%, 100% 100%, 20px 20px, 20px 20px' }} />
 
-              {/* Farm Zone Polygons */}
               <div style={{ position: 'absolute', inset: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 10 }}>
-                
-                {/* Zone 1: Good (Green) */}
-                <div
-                  onClick={() => setSelectedZone('Zone 1')}
-                  style={{
-                    borderRadius: 'var(--radius-lg)',
-                    border: '2px dashed rgba(74, 222, 128, 0.9)',
-                    background: 'rgba(34, 197, 94, 0.25)',
-                    backdropFilter: 'blur(2px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    padding: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                    Zone 1
-                  </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#4ade80', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>
-                    Good
-                  </span>
-                </div>
+                {activeFarmPlots.slice(0, 4).map((plot, i) => {
+                  const status = getPlotStatus(plot);
+                  const colors: [string, string, string] = status.label === 'Critical'
+                    ? ['rgba(248, 113, 113, 0.95)', 'rgba(239, 68, 68, 0.32)', '#f87171']
+                    : status.label === 'Warning'
+                    ? ['rgba(251, 191, 36, 0.9)', 'rgba(245, 158, 11, 0.28)', '#fbbf24']
+                    : ['rgba(74, 222, 128, 0.9)', 'rgba(34, 197, 94, 0.25)', '#4ade80'];
 
-                {/* Zone 2: Attention (Amber) */}
-                <div
-                  onClick={() => setSelectedZone('Zone 2')}
-                  style={{
-                    borderRadius: 'var(--radius-lg)',
-                    border: '2px dashed rgba(251, 191, 36, 0.9)',
-                    background: 'rgba(245, 158, 11, 0.28)',
-                    backdropFilter: 'blur(2px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    padding: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                    Zone 2
-                  </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>
-                    Attention
-                  </span>
-                </div>
-
-                {/* Zone 3: Critical (Red) */}
-                <div
-                  onClick={() => setSelectedZone('Zone 3')}
-                  style={{
-                    borderRadius: 'var(--radius-lg)',
-                    border: '2px dashed rgba(248, 113, 113, 0.95)',
-                    background: 'rgba(239, 68, 68, 0.32)',
-                    backdropFilter: 'blur(2px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    padding: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                    Zone 3
-                  </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#f87171', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>
-                    Critical
-                  </span>
-                </div>
-
-                {/* Zone 4: Good (Green) */}
-                <div
-                  onClick={() => setSelectedZone('Zone 4')}
-                  style={{
-                    borderRadius: 'var(--radius-lg)',
-                    border: '2px dashed rgba(74, 222, 128, 0.9)',
-                    background: 'rgba(34, 197, 94, 0.25)',
-                    backdropFilter: 'blur(2px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    padding: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                    Zone 4
-                  </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#4ade80', background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>
-                    Good
-                  </span>
-                </div>
+                  return (
+                    <div
+                      key={plot.id}
+                      onClick={() => setSelectedZone(selectedZone === plot.id ? null : plot.id)}
+                      style={{ borderRadius: 'var(--radius-lg)', border: `2px dashed ${colors[0]}`, background: colors[1], backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 8, boxShadow: selectedZone === plot.id ? `0 0 0 3px ${colors[2]}` : 'none', transition: 'all 0.15s' }}
+                    >
+                      <span style={{ fontSize: 10, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{plot.code}</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: colors[2], background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>{status.label}</span>
+                      {plot.cropType && <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{plot.cropType}</span>}
+                    </div>
+                  );
+                })}
+                {activeFarmPlots.length === 0 && [
+                  { zone: 'Zone 1', status: 'Good', color: '#4ade80', bg: 'rgba(34, 197, 94, 0.25)', border: 'rgba(74, 222, 128, 0.9)' },
+                  { zone: 'Zone 2', status: 'Attention', color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.28)', border: 'rgba(251, 191, 36, 0.9)' },
+                  { zone: 'Zone 3', status: 'Critical', color: '#f87171', bg: 'rgba(239, 68, 68, 0.32)', border: 'rgba(248, 113, 113, 0.95)' },
+                  { zone: 'Zone 4', status: 'Good', color: '#4ade80', bg: 'rgba(34, 197, 94, 0.25)', border: 'rgba(74, 222, 128, 0.9)' },
+                ].map((z, i) => (
+                  <div key={i} onClick={() => setSelectedZone(z.zone)} style={{ borderRadius: 'var(--radius-lg)', border: `2px dashed ${z.border}`, background: z.bg, backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{z.zone}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: z.color, background: 'rgba(0,0,0,0.4)', padding: '1px 6px', borderRadius: 4, marginTop: 3 }}>{z.status}</span>
+                  </div>
+                ))}
               </div>
 
-              {/* Map Zoom Controls on Right Bottom */}
-              <div
-                style={{
-                  position: 'absolute',
-                  right: 10,
-                  bottom: 10,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                  background: 'rgba(15, 23, 42, 0.75)',
-                  backdropFilter: 'blur(4px)',
-                  padding: 4,
-                  borderRadius: 6,
-                }}
-              >
-                <button className="at-btn-icon" style={{ width: 22, height: 22, border: 'none', color: 'white', background: 'transparent' }} title="Zoom in">
-                  <Plus style={{ width: 12, height: 12 }} />
-                </button>
-                <button className="at-btn-icon" style={{ width: 22, height: 22, border: 'none', color: 'white', background: 'transparent' }} title="Zoom out">
-                  <Minus style={{ width: 12, height: 12 }} />
-                </button>
-                <button className="at-btn-icon" style={{ width: 22, height: 22, border: 'none', color: 'white', background: 'transparent' }} title="Center">
-                  <Crosshair style={{ width: 12, height: 12 }} />
-                </button>
+              {/* Zoom controls */}
+              <div style={{ position: 'absolute', right: 10, bottom: 10, display: 'flex', flexDirection: 'column', gap: 4, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', padding: 4, borderRadius: 6 }}>
+                <button className="at-btn-icon" style={{ width: 22, height: 22, border: 'none', color: 'white', background: 'transparent' }}><Plus style={{ width: 12, height: 12 }} /></button>
+                <button className="at-btn-icon" style={{ width: 22, height: 22, border: 'none', color: 'white', background: 'transparent' }}><Minus style={{ width: 12, height: 12 }} /></button>
+                <button className="at-btn-icon" style={{ width: 22, height: 22, border: 'none', color: 'white', background: 'transparent' }}><Crosshair style={{ width: 12, height: 12 }} /></button>
               </div>
             </div>
 
-            {/* Layer Checkboxes List */}
+            {/* Layer controls */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}>
-              {[
-                'Terrain',
-                'Crops',
-                'Soil Moisture',
-                'Soil pH',
-                'Temperature',
-                'NDVI (Crop Health)',
-                'Irrigation',
-                'Erosion Risk',
-              ].map((layer) => {
+              {['Terrain', 'Crops', 'Soil Moisture', 'Soil pH', 'Temperature', 'NDVI (Crop Health)', 'Irrigation', 'Erosion Risk'].map((layer) => {
                 const checked = Boolean(activeLayers[layer]);
                 return (
-                  <label
-                    key={layer}
-                    onClick={() => handleToggleLayer(layer)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      cursor: 'pointer',
-                      color: checked ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                      fontWeight: checked ? 600 : 400,
-                      userSelect: 'none',
-                    }}
-                  >
-                    {checked ? (
-                      <CheckSquare style={{ width: 13, height: 13, color: 'var(--color-primary)', flexShrink: 0 }} />
-                    ) : (
-                      <Square style={{ width: 13, height: 13, color: 'var(--color-border-strong)', flexShrink: 0 }} />
-                    )}
+                  <label key={layer} onClick={() => handleToggleLayer(layer)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: checked ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', fontWeight: checked ? 600 : 400, userSelect: 'none' }}>
+                    {checked
+                      ? <CheckSquare style={{ width: 13, height: 13, color: 'var(--color-primary)', flexShrink: 0 }} />
+                      : <Square style={{ width: 13, height: 13, color: 'var(--color-border-strong)', flexShrink: 0 }} />
+                    }
                     <span style={{ lineHeight: 1.2 }}>{layer}</span>
                   </label>
                 );
@@ -650,29 +1006,40 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Map Legend */}
+          {/* Selected zone info */}
+          {selectedZone && (
+            <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--color-primary-subtle)', border: '1px solid var(--color-primary-border)', borderRadius: 'var(--radius-lg)', fontSize: 12, color: 'var(--color-primary-text)' }}>
+              <strong>{selectedZone}</strong> selected.{' '}
+              <Link to="/analytics" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>View Telemetry →</Link>
+              {' | '}
+              <Link to="/sensors" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>View Sensors →</Link>
+              {' | '}
+              <Link to="/history" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>View History →</Link>
+            </div>
+          )}
+
+          {/* Map legend */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, fontSize: 11, color: 'var(--color-text-muted)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-success)' }} />
-              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>Normal</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-warning)' }} />
-              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>Attention</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-danger)' }} />
-              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>Critical</span>
-            </div>
+            {[['var(--color-success)', 'Healthy'], ['var(--color-warning)', 'Warning'], ['var(--color-danger)', 'Critical']].map(([c, l]) => (
+              <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />
+                <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>{l}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Alerts & Notifications Card (Matching Reference) */}
+        {/* Alerts Panel */}
         <div className="at-card" style={{ padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>
-              <Bell style={{ width: 17, height: 17, color: 'var(--color-text-primary)' }} />
+              <Bell style={{ width: 17, height: 17, color: activeAlertsCount > 0 ? 'var(--color-danger)' : 'var(--color-text-primary)' }} />
               Alerts & Notifications
+              {activeAlertsCount > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 'var(--radius-full)', background: 'var(--color-danger)', color: 'white' }}>
+                  {activeAlertsCount}
+                </span>
+              )}
             </div>
             <Link to="/alerts" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
               View All
@@ -680,210 +1047,68 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            
-            {/* Alert 1: Low Soil Moisture (Critical - Red) */}
-            <div
-              style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-lg)',
-                background: '#fef2f2',
-                border: '1px solid #fee2e2',
-                display: 'flex',
-                gap: 10,
-                alignItems: 'flex-start',
-              }}
-            >
-              <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Droplets style={{ width: 13, height: 13, color: '#dc2626' }} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#b91c1c' }}>
-                    Low soil moisture detected
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>1 hour ago</span>
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>
-                  Zone 3
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1 }}>
-                  Current: <strong style={{ color: '#b91c1c' }}>21%</strong> &nbsp;|&nbsp; Optimal: 35–55%
-                </div>
-                <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 2 }}>
-                  Recommended action: <strong>Irrigate Zone 3</strong>
-                </div>
-              </div>
-              <Link
-                to="/control"
-                className="at-btn at-btn-sm"
-                style={{
-                  background: '#f87171',
-                  color: 'white',
-                  border: 'none',
-                  fontSize: 11,
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-md)',
-                  alignSelf: 'center',
-                  textDecoration: 'none',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Take Action
-              </Link>
-            </div>
+            {alerts.filter(a => a.status === 'active').slice(0, 4).map((alert) => {
+              const isCritical = alert.severity === 'critical';
+              const isWarning = alert.severity === 'warning';
+              const bg = isCritical ? '#fef2f2' : isWarning ? '#fffbeb' : '#f0f9ff';
+              const border = isCritical ? '#fee2e2' : isWarning ? '#fef3c7' : '#e0f2fe';
+              const textColor = isCritical ? '#b91c1c' : isWarning ? '#92400e' : '#075985';
 
-            {/* Alert 2: Possible Crop Stress (Warning - Amber) */}
-            <div
-              style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-lg)',
-                background: '#fffbeb',
-                border: '1px solid #fef3c7',
-                display: 'flex',
-                gap: 10,
-                alignItems: 'flex-start',
-              }}
-            >
-              <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Sprout style={{ width: 13, height: 13, color: '#d97706' }} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>
-                    Possible crop stress
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>3 hours ago</span>
+              return (
+                <div key={alert.id} style={{ padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: bg, border: `1px solid ${border}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ width: 26, height: 26, borderRadius: '50%', background: border, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <AlertTriangle style={{ width: 13, height: 13, color: textColor }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: textColor }}>{alert.title}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>{alert.message}</div>
+                    <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 3 }}>
+                      {new Date(alert.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>
-                  Zone 2
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1 }}>
-                  NDVI indicates lower plant health.
-                </div>
-                <div style={{ fontSize: 11, color: '#92400e', marginTop: 2 }}>
-                  Recommended: <strong>Inspect Zone 2</strong>
-                </div>
-              </div>
-              <Link
-                to="/crop-health"
-                className="at-btn at-btn-sm"
-                style={{
-                  background: '#fde68a',
-                  color: '#78350f',
-                  border: 'none',
-                  fontSize: 11,
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-md)',
-                  alignSelf: 'center',
-                  textDecoration: 'none',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Inspect
-              </Link>
-            </div>
+              );
+            })}
 
-            {/* Alert 3: High Temperature (Info - Blue) */}
-            <div
-              style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-lg)',
-                background: '#f0f9ff',
-                border: '1px solid #e0f2fe',
-                display: 'flex',
-                gap: 10,
-                alignItems: 'flex-start',
-              }}
-            >
-              <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Thermometer style={{ width: 13, height: 13, color: '#0284c7' }} />
+            {alerts.filter(a => a.status === 'active').length === 0 && (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>
+                <CheckCircle2 style={{ width: 24, height: 24, margin: '0 auto 8px', color: '#16a34a', display: 'block' }} />
+                All clear! No active alerts.
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#0369a1' }}>
-                    High temperature alert
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>5 hours ago</span>
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>
-                  Zone 4
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1 }}>
-                  Current: <strong style={{ color: '#0369a1' }}>34.2°C</strong> &nbsp;|&nbsp; Optimal: &lt; 32°C
-                </div>
-                <div style={{ fontSize: 11, color: '#0369a1', marginTop: 2 }}>
-                  Recommended: <strong>Monitor closely</strong>
-                </div>
-              </div>
-              <Link
-                to="/analytics"
-                className="at-btn at-btn-sm"
-                style={{
-                  background: '#bae6fd',
-                  color: '#075985',
-                  border: 'none',
-                  fontSize: 11,
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-md)',
-                  alignSelf: 'center',
-                  textDecoration: 'none',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                View
-              </Link>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── ROW 3: Sensor Trends + Current Weather & Farm Timeline (Matching Reference) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(320px, 1fr)', gap: 16, alignItems: 'start' }}>
-        
-        {/* Sensor Trends Card */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          SECTION 6 — REALTIME TELEMETRY CHART
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(300px, 1fr)', gap: 16, alignItems: 'start' }}>
+        {/* Sensor Trends */}
         <div className="at-card" style={{ padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Activity style={{ width: 17, height: 17, color: 'var(--color-primary)' }} />
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>Sensor Trends</span>
-              
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>Live Sensor Trends</span>
               <select
                 value={selectedMetric}
                 onChange={(e) => setSelectedMetric(e.target.value)}
                 className="at-input at-select"
                 style={{ height: 30, fontSize: 12, padding: '2px 24px 2px 8px', width: 'auto', fontWeight: 600 }}
               >
-                <option value="Soil Moisture">Soil Moisture</option>
-                <option value="Temperature">Temperature</option>
-                <option value="Humidity">Humidity</option>
-                <option value="Soil pH">Soil pH</option>
+                <option>Soil Moisture</option>
+                <option>Temperature</option>
+                <option>Humidity</option>
+                <option>Soil pH</option>
               </select>
             </div>
 
-            {/* Time Range Pills */}
             <div style={{ display: 'flex', gap: 4, background: 'var(--color-surface-muted)', padding: 3, borderRadius: 'var(--radius-lg)' }}>
-              {[
-                { id: '24h', label: '24 Hours' },
-                { id: '7d', label: '7 Days' },
-                { id: '30d', label: '30 Days' },
-              ].map((pill) => (
+              {[{ id: '24h', label: '24h' }, { id: '7d', label: '7d' }, { id: '30d', label: '30d' }].map((pill) => (
                 <button
                   key={pill.id}
                   onClick={() => setTrendRange(pill.id as any)}
-                  style={{
-                    padding: '4px 10px',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    borderRadius: 'var(--radius-md)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    background: trendRange === pill.id ? 'var(--color-primary)' : 'transparent',
-                    color: trendRange === pill.id ? 'white' : 'var(--color-text-secondary)',
-                    transition: 'all 0.15s',
-                  }}
+                  style={{ padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', background: trendRange === pill.id ? 'var(--color-primary)' : 'transparent', color: trendRange === pill.id ? 'white' : 'var(--color-text-secondary)', transition: 'all 0.15s' }}
                 >
                   {pill.label}
                 </button>
@@ -891,12 +1116,9 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ height: 210, width: '100%', position: 'relative' }}>
-            <div style={{ position: 'absolute', left: -8, top: '40%', transform: 'rotate(-90deg)', fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 600 }}>
-              Soil Moisture (%)
-            </div>
+          <div style={{ height: 200, width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorMoisture" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.25} />
@@ -911,287 +1133,211 @@ export const Dashboard: React.FC = () => {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Auto-refresh notice */}
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--color-text-muted)' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16a34a', animation: 'at-pulse 1.5s infinite', display: 'inline-block', flexShrink: 0 }} />
+            Updating every 10–15 seconds · {new Date().toLocaleTimeString()}
+          </div>
         </div>
 
-        {/* Right Stack: Current Weather + Farm Timeline */}
+        {/* Weather + Quick Actions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          
-          {/* Current Weather Card */}
+          {/* Weather card */}
           <div className="at-card" style={{ padding: '16px 18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 10 }}>
               <Sun style={{ width: 16, height: 16, color: '#d97706' }} />
               Current Weather
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 12, alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Sun style={{ width: 24, height: 24, color: '#d97706' }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1 }}>
-                    27.4°C
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
-                    Partly Cloudy
-                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1 }}>27.4°C</div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>Partly Cloudy</div>
                 </div>
               </div>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11, borderLeft: '1px solid var(--color-border-muted)', paddingLeft: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--color-text-muted)' }}>Humidity</span>
-                  <strong style={{ color: 'var(--color-text-primary)' }}>71%</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--color-text-muted)' }}>Wind Speed</span>
-                  <strong style={{ color: 'var(--color-text-primary)' }}>6.2 km/h</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--color-text-muted)' }}>Rainfall</span>
-                  <strong style={{ color: 'var(--color-text-primary)' }}>0 mm</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--color-text-muted)' }}>Light Intensity</span>
-                  <strong style={{ color: 'var(--color-text-primary)' }}>68 klux</strong>
-                </div>
+                {[['Humidity', '71%'], ['Wind', '6.2 km/h'], ['Rainfall', '0 mm']].map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--color-text-muted)' }}>{k}</span>
+                    <strong style={{ color: 'var(--color-text-primary)' }}>{v}</strong>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Farm Timeline Card */}
+          {/* Quick actions */}
           <div className="at-card" style={{ padding: '16px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                <Clock style={{ width: 16, height: 16, color: 'var(--color-primary)' }} />
-                Farm Timeline
-              </div>
-              <Link to="/activity-log" style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
-                View All
-              </Link>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Sparkles style={{ width: 15, height: 15, color: 'var(--color-primary)' }} />
+              Quick Actions
             </div>
-
-            {/* Timeline Steps */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', position: 'relative', padding: '4px 0' }}>
-              {/* Connector line */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 9,
-                  left: 12,
-                  right: 12,
-                  height: 2,
-                  background: 'var(--color-border)',
-                  zIndex: 0,
-                }}
-              />
-
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
-                { date: '01 Sep', label: 'Crop planted', color: 'var(--color-primary)' },
-                { date: '08 Sep', label: 'First scan', color: 'var(--color-primary)' },
-                { date: '15 Sep', label: 'Growth +12%', color: 'var(--color-primary)' },
-                { date: '22 Sep', label: 'Moisture stress', color: 'var(--color-warning)' },
-                { date: '24 Sep', label: 'Irrigation', color: 'var(--color-primary)' },
-                { date: 'Today', label: 'Normal', color: 'var(--color-primary)' },
-              ].map((step, idx) => (
-                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, textAlign: 'center', minWidth: 42 }}>
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: '50%',
-                      background: step.color,
-                      border: '2px solid white',
-                      boxShadow: '0 0 0 1px var(--color-border)',
-                      marginBottom: 4,
-                    }}
-                  />
-                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-text-primary)' }}>{step.date}</span>
-                  <span style={{ fontSize: 8, color: 'var(--color-text-muted)', lineHeight: 1.1, marginTop: 1 }}>{step.label}</span>
-                </div>
+                { label: 'View Sensors', to: '/sensors', icon: <Radio style={{ width: 14, height: 14 }} />, accent: '#7c3aed' },
+                { label: 'Field Logs', to: '/history', icon: <FileText style={{ width: 14, height: 14 }} />, accent: '#0284c7' },
+                { label: 'Manage Farms', to: '/my-farms', icon: <Building2 style={{ width: 14, height: 14 }} />, accent: '#16a34a' },
+                { label: 'AI Advisor', to: '/advisor', icon: <Sparkles style={{ width: 14, height: 14 }} />, accent: '#d97706' },
+              ].map((action) => (
+                <Link
+                  key={action.to}
+                  to={action.to}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 'var(--radius-lg)', textDecoration: 'none', color: 'var(--color-text-secondary)', transition: 'background 0.15s', fontSize: 12, fontWeight: 600 }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-muted)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <span style={{ width: 28, height: 28, borderRadius: 8, background: `${action.accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: action.accent, flexShrink: 0 }}>
+                    {action.icon}
+                  </span>
+                  {action.label}
+                  <ChevronRight style={{ width: 12, height: 12, marginLeft: 'auto', color: 'var(--color-text-muted)' }} />
+                </Link>
               ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── ROW 4: Recommendations (Matching Reference) ── */}
-      <div className="at-card" style={{ padding: '18px 20px', background: '#f8fdf9', border: '1px solid #dcfce7' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: 'var(--color-primary-text)' }}>
-              <Sparkles style={{ width: 17, height: 17, color: 'var(--color-primary)' }} />
-              Recommendations
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          SECTION 7 — FIELD ACTIVITY CENTER
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div id="at-field-activity" className="at-card" style={{ padding: 0, overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-lg)', background: '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ClipboardList style={{ width: 17, height: 17, color: '#0284c7' }} />
             </div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
-              Actionable insights for a healthier and more productive farm
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>Field Activity Center</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                Complete event log — filter, search, and export
+              </div>
             </div>
           </div>
-          <Link to="/advisor" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
-            View All Recommendations
-          </Link>
-        </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-          {/* Card 1 */}
-          <Link
-            to="/control"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 16px',
-              background: 'white',
-              borderRadius: 'var(--radius-xl)',
-              border: '1px solid #e2e8f0',
-              textDecoration: 'none',
-              boxShadow: 'var(--shadow-xs)',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-primary)')}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e2e8f0')}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-lg)', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Droplets style={{ width: 17, height: 17, color: '#0284c7' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Irrigate Zone 3</div>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>Soil moisture is below the recommended range.</div>
-              </div>
-            </div>
-            <ChevronRight style={{ width: 16, height: 16, color: 'var(--color-text-muted)' }} />
-          </Link>
-
-          {/* Card 2 */}
-          <Link
-            to="/crop-health"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 16px',
-              background: 'white',
-              borderRadius: 'var(--radius-xl)',
-              border: '1px solid #e2e8f0',
-              textDecoration: 'none',
-              boxShadow: 'var(--shadow-xs)',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-primary)')}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e2e8f0')}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-lg)', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Sprout style={{ width: 17, height: 17, color: 'var(--color-primary)' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Inspect Zone 2</div>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>Crop condition has changed compared to previous observation.</div>
-              </div>
-            </div>
-            <ChevronRight style={{ width: 16, height: 16, color: 'var(--color-text-muted)' }} />
-          </Link>
-
-          {/* Card 3 */}
-          <Link
-            to="/analytics"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 16px',
-              background: 'white',
-              borderRadius: 'var(--radius-xl)',
-              border: '1px solid #e2e8f0',
-              textDecoration: 'none',
-              boxShadow: 'var(--shadow-xs)',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-primary)')}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e2e8f0')}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 'var(--radius-lg)', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <BarChart3 style={{ width: 17, height: 17, color: 'var(--color-text-secondary)' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Monitor Zone 4</div>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>Growth rate is lower than the farm average.</div>
-              </div>
-            </div>
-            <ChevronRight style={{ width: 16, height: 16, color: 'var(--color-text-muted)' }} />
-          </Link>
-        </div>
-      </div>
-
-      {/* ── ROW 5: Deep System Sections (Live Plots, Hierarchy, Supabase Monitor) ── */}
-      <div className="at-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="at-card-header" style={{ padding: '16px 20px', marginBottom: 0 }}>
-          <div>
-            <div className="at-card-title">
-              <HeartPulse style={{ width: 17, height: 17, color: 'var(--color-primary)' }} />
-              Live Field Plot Telemetry &mdash; {activeFarmland?.name || 'Active Farm'}
-            </div>
-            <div className="at-card-subtitle">Real-time plot measurements and sensor broadcasting status.</div>
-          </div>
-          <Link to="/virtual-farm" className="at-btn at-btn-secondary at-btn-sm">
-            Open Virtual Farm &rarr;
-          </Link>
-        </div>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-          gap: 0,
-          borderTop: '1px solid var(--color-border-muted)',
-        }}>
-          {activeSections.slice(0, 4).map((plot, idx) => (
-            <div
-              key={plot.id}
-              style={{
-                padding: '16px 18px',
-                borderRight: '1px solid var(--color-border-muted)',
-                borderBottom: '1px solid var(--color-border-muted)',
-                transition: 'background 0.12s',
-              }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* Farm filter */}
+            <select
+              value={logFarmFilter}
+              onChange={(e) => setLogFarmFilter(e.target.value)}
+              className="at-input at-select"
+              style={{ height: 34, fontSize: 12, padding: '2px 28px 2px 10px', width: 'auto' }}
+              aria-label="Filter by farm"
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{
-                    background: 'var(--color-primary)',
-                    color: 'white',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: '2px 6px',
-                    borderRadius: 'var(--radius)',
-                    fontFamily: 'monospace',
-                  }}>
-                    {plot.code}
-                  </span>
-                  <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-primary)' }}>
-                    {plot.name}
-                  </span>
-                </div>
-                <span className="at-badge success" style={{ fontSize: 10 }}>
-                  <span className="at-badge-dot" />
-                  {plot.soilHealthScore || 85}
-                </span>
-              </div>
+              <option value="all">All Farms</option>
+              {farmlands.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <div style={{ background: 'var(--color-surface-muted)', padding: '6px 8px', borderRadius: 8 }}>
-                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Moisture</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{formatMoisture(plot.soilMoisture)}</div>
-                </div>
-                <div style={{ background: 'var(--color-surface-muted)', padding: '6px 8px', borderRadius: 8 }}>
-                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Temp</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{formatTemperature(plot.airTemp)}</div>
-                </div>
-              </div>
-            </div>
-          ))}
+            {/* Date filter */}
+            <input
+              type="date"
+              value={logDateFilter}
+              onChange={(e) => setLogDateFilter(e.target.value)}
+              className="at-input"
+              style={{ height: 34, fontSize: 12, padding: '2px 8px', width: 140 }}
+              aria-label="Filter by date"
+            />
+
+            {/* CSV export */}
+            <button
+              onClick={handleCsvExport}
+              className="at-btn at-btn-secondary at-btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, height: 34 }}
+              id="at-export-csv-btn"
+            >
+              <Download style={{ width: 13, height: 13 }} />
+              Export CSV
+            </button>
+
+            <Link to="/activity-log" className="at-btn at-btn-primary at-btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, height: 34, textDecoration: 'none' }}>
+              <FileText style={{ width: 13, height: 13 }} />
+              Full Log
+            </Link>
+          </div>
         </div>
+
+        {/* Log Table */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: 'var(--color-surface-muted)', borderBottom: '1px solid var(--color-border)' }}>
+                {['Time', 'Farm', 'Plot', 'Sensor', 'Event', 'Description', 'Severity'].map(h => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>
+                    <Clock style={{ width: 24, height: 24, margin: '0 auto 8px', display: 'block' }} />
+                    No activity found. Load demo data to see field events.
+                  </td>
+                </tr>
+              ) : (
+                filteredLogs.map((log, i) => {
+                  const farmName = farmlands.find(f => f.id === log.farmId)?.name;
+                  return (
+                    <tr
+                      key={log.id}
+                      style={{ borderBottom: '1px solid var(--color-border-muted)', background: i % 2 === 0 ? 'transparent' : 'var(--color-surface-muted)', transition: 'background 0.1s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-primary-subtle)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'var(--color-surface-muted)'}
+                    >
+                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>{fmtTime(log.timestamp)}</div>
+                        <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{fmtDate(log.timestamp)}</div>
+                      </td>
+                      <td style={{ padding: '10px 14px', maxWidth: 120 }}>
+                        <div style={{ fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {farmName || log.farmId || '—'}
+                        </div>
+                      </td>
+                      <td style={{ padding: '10px 14px', color: 'var(--color-text-muted)', fontFamily: 'monospace', fontSize: 11 }}>
+                        {log.plotId || '—'}
+                      </td>
+                      <td style={{ padding: '10px 14px', color: 'var(--color-text-muted)', fontFamily: 'monospace', fontSize: 11 }}>
+                        {log.sensorId || '—'}
+                      </td>
+                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'var(--color-surface-muted)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
+                          {log.eventType?.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px', maxWidth: 220 }}>
+                        <div style={{ fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.title}</div>
+                        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.description}</div>
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: `${severityColor(log.severity)}18`, color: severityColor(log.severity), border: `1px solid ${severityColor(log.severity)}33`, textTransform: 'capitalize' }}>
+                          {log.severity}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {filteredLogs.length > 0 && (
+          <div style={{ padding: '12px 20px', borderTop: '1px solid var(--color-border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--color-surface-muted)' }}>
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+              Showing {filteredLogs.length} of {(fieldActivities || []).length} events
+            </span>
+            <Link to="/activity-log" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+              View complete activity log →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Supabase Live DB Monitor Section */}

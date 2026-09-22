@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import {
-  Building2,
   Menu,
   Bell,
   Search,
@@ -14,12 +13,7 @@ import { useAgriStore } from '../../context/AgriStore';
 import { useAuth } from '../../context/AuthContext';
 
 const GlobalTopBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean }> = ({ onMenuToggle }) => {
-  const {
-    farmlands,
-    activeFarmland,
-    selectFarmland,
-    alerts,
-  } = useAgriStore();
+  const { activeFarmland, alerts } = useAgriStore();
 
   const { userProfile, role, isAdmin } = useAuth();
 
@@ -138,25 +132,28 @@ const GlobalTopBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean }>
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Farm Selector */}
-        <div className="at-farm-selector" style={{ flex: '0 1 auto', minWidth: 0, height: 36, padding: '0 12px' }}>
-          <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontWeight: 600, flexShrink: 0 }}>
-            Farm:
-          </span>
-          <select
-            value={activeFarmland?.id || farmlands[0]?.id || ''}
-            onChange={(e) => selectFarmland(e.target.value)}
-            aria-label="Select active farm"
-            style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-primary)' }}
+        {/* Active Farm Indicator */}
+        {activeFarmland && (
+          <div
+            className="at-hide-mobile"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 10px',
+              background: 'var(--color-primary-subtle)',
+              border: '1px solid var(--color-primary-border)',
+              borderRadius: 'var(--radius-lg)',
+              flexShrink: 0,
+              height: 36,
+            }}
           >
-            {farmlands.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown style={{ width: 14, height: 14, color: 'var(--color-text-muted)', flexShrink: 0 }} />
-        </div>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)', display: 'inline-block' }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-primary-text)' }}>
+              {activeFarmland.name}
+            </span>
+          </div>
+        )}
 
         {/* Live status */}
         <div className="at-live" style={{ flexShrink: 0, height: 32, padding: '0 12px' }}>
