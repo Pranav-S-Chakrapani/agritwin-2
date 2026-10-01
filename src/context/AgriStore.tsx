@@ -10,13 +10,17 @@ import {
   saveAlertToSupabase,
   subscribeToSupabaseMultiTable,
   saveTelemetryObservationToSupabase,
+  saveTelemetryBatchToSupabase,
   clearSimulatedTelemetryFromSupabase,
   isSupabaseConfigured
 } from '../lib/supabase';
 import { telemetrySimulator } from '../services/telemetrySimulator';
+import { firebaseTelemetry, LiveConnectionState } from '../services/firebaseTelemetry';
+import { FirebaseConnectionStatus } from '../lib/firebase-client';
 import { SEEDED_FARMS, SEEDED_PLOTS, SEEDED_SENSORS, generateSeededTelemetry, seedMultiFarmSystemToSupabase } from '../lib/multi-farm-seeder';
 import { ActivityLogger, setActivityCallback, seedActivityLog, logActivity } from '../lib/activity-logger';
 import { evaluatePlotAlerts, evaluateSensorAlerts } from '../lib/alert-engine';
+import { SensorNode, DEFAULT_ZONE_SENSOR_MAPPING, DEFAULT_SENSOR_THRESHOLDS, calculateZoneHealth, SensorThresholdsConfig } from '../config/sensorMapping';
 
 export const STORE_KEYS = {
   CROPS: 'agritwin_crops',
@@ -30,7 +34,9 @@ export const STORE_KEYS = {
   ALERTS: 'agritwin_alerts',
   ACTIVE_FARM_ID: 'agritwin_active_farm_id',
   CURRENT_USER: 'agritwin_current_user_profile',
-  DEMO_TELEMETRY_ACTIVE: 'agritwin_demo_telemetry_active'
+  DEMO_TELEMETRY_ACTIVE: 'agritwin_demo_telemetry_active',
+  TELEMETRY_MODE: 'agritwin_telemetry_mode',
+  ZONE_SENSOR_MAPPING: 'agritwin_zone_sensor_mapping'
 } as const;
 
 export const SEED_CROPS: Crop[] = [
@@ -170,7 +176,7 @@ const SEED_ACTIVITIES: FieldActivity[] = [
     plotId: 'plot_dharwad_01',
     eventType: 'sensor_online',
     title: 'Sensor Unit Node 01 Connected',
-    description: 'Multi-parameter soil probe is transmitting data every 10s.',
+    description: 'Multi-parameter soil probe is transmitting live readings.',
     severity: 'success',
   },
   {
@@ -203,6 +209,8 @@ const SEED_INITIAL_ALERTS: FarmAlert[] = [
   }
 ];
 
+export type TelemetryMode = 'DEMO' | 'LIVE';
+
 interface AgriStoreContextType {
   crops: Crop[];
   farmlands: Farmland[];
@@ -218,8 +226,23 @@ interface AgriStoreContextType {
   currentUser: UserProfile | null;
   isAdmin: boolean;
   isWorker: boolean;
+  
+  // Telemetry Modes (Demo Mode vs Live Mode)
+  telemetryMode: TelemetryMode;
+  setTelemetryMode: (mode: TelemetryMode) => void;
   isDemoTelemetryActive: boolean;
   toggleDemoTelemetry: (enable: boolean) => void;
+  
+  // Firebase Live Telemetry State & Normalized Sensor Nodes
+  sensorNodes: Record<string, SensorNode>;
+  zoneSensorMapping: Record<string, string[]>;
+  updateZoneSensorMapping: (mapping: Record<string, string[]>) => void;
+  firebaseConnectionState: LiveConnectionState;
+  firebaseStatus: FirebaseConnectionStatus;
+  isFirebaseLive: boolean;
+  lastFirebasePing: string | null;
+  publishLiveReading: (farmId: string, plotId: string, sensorId: string, data: any) => Promise<boolean>;
+
   triggerTelemetrySimulationNow: () => Promise<void>;
   clearSimulatedTelemetry: () => Promise<{ count: number; message: string }>;
   seedMultiFarmSystem: () => Promise<any>;
@@ -312,11 +335,38 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return loadInitialState(STORE_KEYS.CURRENT_USER, SEED_USERS[0]);
   });
 
+  // Telemetry Mode: 'LIVE' (Firebase Realtime DB) or 'DEMO' (Simulator)
+  const [telemetryMode, setTelemetryModeState] = useState<TelemetryMode>(() => {
+    if (typeof window === 'undefined') return 'LIVE';
+    const stored = localStorage.getItem(STORE_KEYS.TELEMETRY_MODE);
+    return (stored === 'LIVE' || stored === 'DEMO') ? stored : 'LIVE';
+  });
+
   const [isDemoTelemetryActive, setIsDemoTelemetryActive] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     const stored = localStorage.getItem(STORE_KEYS.DEMO_TELEMETRY_ACTIVE);
     return stored === null ? true : stored === 'true';
   });
+
+  // Firebase Realtime State & Dynamic Sensor Nodes
+  const [firebaseConnectionState, setFirebaseConnectionState] = useState<LiveConnectionState>(() => firebaseTelemetry.getConnectionStatus());
+  const [firebaseStatus, setFirebaseStatus] = useState<FirebaseConnectionStatus>(() => 
+    firebaseTelemetry.getConnectionStatus() === 'LIVE' ? 'Connected' : 'Disconnected'
+  );
+  const [lastFirebasePing, setLastFirebasePing] = useState<string | null>(null);
+  const [sensorNodes, setSensorNodes] = useState<Record<string, SensorNode>>({});
+  
+  // Configurable Zone-to-Sensor Mapping
+  const [zoneSensorMapping, setZoneSensorMappingState] = useState<Record<string, string[]>>(() => {
+    return loadInitialState(STORE_KEYS.ZONE_SENSOR_MAPPING, DEFAULT_ZONE_SENSOR_MAPPING);
+  });
+
+  const updateZoneSensorMapping = (newMapping: Record<string, string[]>) => {
+    setZoneSensorMappingState(newMapping);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORE_KEYS.ZONE_SENSOR_MAPPING, JSON.stringify(newMapping));
+    }
+  };
 
   // Sync ActivityLogger callback to AgriStore state
   useEffect(() => {
@@ -354,7 +404,6 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   // ── Ingestion Boundary Physiological Validator ────────────────────────────
-  // Strict physical ranges: pH 3.5-9.0, Moisture 0-100%, Temp 15-42°C, Humidity 0-100%
   const validateAndTagTelemetry = (obs: TelemetryObservation): TelemetryObservation => {
     let qualityStatus = obs.qualityStatus || 'VALID';
     const key = (obs.parameterKey || '').toLowerCase();
@@ -378,7 +427,7 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   };
 
-  // Real-time Telemetry Processor (used by Supabase Realtime & Simulator)
+  // Real-time Telemetry Processor (used by Firebase, Simulator & Supabase)
   const processIncomingTelemetry = useCallback((incomingObs: TelemetryObservation[]) => {
     if (!incomingObs || incomingObs.length === 0) return;
 
@@ -453,6 +502,93 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   }, []);
 
+  // Listen to Firebase Connection Status
+  useEffect(() => {
+    const unsub = firebaseTelemetry.onStatusChange((status) => {
+      setFirebaseConnectionState(status);
+      setFirebaseStatus(status === 'LIVE' ? 'Connected' : 'Disconnected');
+    });
+    return unsub;
+  }, []);
+
+  // ── FIREBASE REALTIME SUBSCRIPTION (LIVE MODE) ─────────────────────────────
+  useEffect(() => {
+    if (telemetryMode === 'LIVE') {
+      console.log('[AGRITWIN] LIVE MODE ACTIVE — Subscribing to dynamic Firebase Realtime nodes');
+      
+      const unsubFirebase = firebaseTelemetry.subscribeToSensorNodes(
+        (nodes, incomingObs, updatedSensors) => {
+          const nowStr = new Date().toISOString();
+          setLastFirebasePing(nowStr);
+          setSensorNodes(nodes);
+
+          // Update active plots using zoneSensorMapping from live nodes
+          setPlots((prevPlots) => {
+            return prevPlots.map((plot, idx) => {
+              const zoneKey = `zone-${idx + 1}`;
+              const assignedNodes = zoneSensorMapping[zoneKey] || [`Node_${idx + 1}`];
+              
+              // Find first available sensor node data for this zone
+              let matchedNode: SensorNode | undefined;
+              for (const nid of assignedNodes) {
+                if (nodes[nid]) {
+                  matchedNode = nodes[nid];
+                  break;
+                }
+              }
+
+              if (!matchedNode) {
+                // Fallback by key matching
+                matchedNode = nodes[`Node_${idx + 1}`] || nodes[`Node_${idx + 2}`];
+              }
+
+              if (!matchedNode) return plot;
+
+              const newSm = matchedNode.soilMoisture !== undefined ? matchedNode.soilMoisture : plot.soilMoisture;
+              const newTemp = matchedNode.airTemp !== undefined ? matchedNode.airTemp : plot.airTemp;
+              const newHum = matchedNode.humidity !== undefined ? matchedNode.humidity : plot.humidity;
+              const newPh = matchedNode.soilPH !== undefined ? matchedNode.soilPH : plot.soilPh;
+
+              const health = calculateZoneHealth(matchedNode);
+              let healthScore = health.status === 'Normal' ? 92 : (health.status === 'Attention' ? 76 : 58);
+
+              return {
+                ...plot,
+                soilMoisture: newSm,
+                airTemp: newTemp,
+                humidity: newHum,
+                soilPh: newPh,
+                soilHealthScore: healthScore,
+              };
+            });
+          });
+
+          if (incomingObs && incomingObs.length > 0) {
+            processIncomingTelemetry(incomingObs);
+            saveTelemetryBatchToSupabase(incomingObs);
+          }
+
+          if (updatedSensors && updatedSensors.length > 0) {
+            setSensors((prev) => {
+              const map = new Map<string, IoTSensor>();
+              (prev || []).forEach((s) => map.set(s.id, s));
+              updatedSensors.forEach((s) => map.set(s.id, s));
+              return Array.from(map.values());
+            });
+            saveSensorsToSupabase(updatedSensors);
+          }
+        },
+        activeFarmId
+      );
+
+      return () => {
+        unsubFirebase();
+      };
+    } else {
+      firebaseTelemetry.unsubscribeAll();
+    }
+  }, [telemetryMode, activeFarmId, zoneSensorMapping, processIncomingTelemetry]);
+
   // Real-time Supabase Subscription
   useEffect(() => {
     const handleRealtimeActivity = (act: FieldActivity) => {
@@ -490,8 +626,9 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => { cropsRef.current = crops; }, [crops]);
   useEffect(() => { sensorsRef.current = sensors; }, [sensors]);
 
+  // Telemetry Simulator (Active only in DEMO mode)
   useEffect(() => {
-    if (isDemoTelemetryActive) {
+    if (telemetryMode === 'DEMO' && isDemoTelemetryActive) {
       telemetrySimulator.start(
         () => plotsRef.current,
         () => cropsRef.current,
@@ -524,13 +661,36 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } else {
       telemetrySimulator.stop();
     }
-  }, [isDemoTelemetryActive, processIncomingTelemetry]);
+  }, [telemetryMode, isDemoTelemetryActive, processIncomingTelemetry]);
+
+  const setTelemetryMode = (mode: TelemetryMode) => {
+    setTelemetryModeState(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORE_KEYS.TELEMETRY_MODE, mode);
+    }
+    logActivity({
+      eventType: 'system_event',
+      title: `Switched to ${mode === 'LIVE' ? 'Live Firebase' : 'Demo Simulator'} Mode`,
+      description: mode === 'LIVE' 
+        ? 'Live telemetry streaming from Firebase Realtime Database with historical persistence in Supabase.'
+        : 'Demo simulation generator enabled for local demonstration.',
+      severity: 'info'
+    });
+  };
 
   const toggleDemoTelemetry = (enable: boolean) => {
     setIsDemoTelemetryActive(enable);
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORE_KEYS.DEMO_TELEMETRY_ACTIVE, String(enable));
     }
+  };
+
+  const publishLiveReading = async (farmId: string, plotId: string, sensorId: string, data: any) => {
+    const success = await firebaseTelemetry.publishLiveSensorReading(farmId, plotId, sensorId, data);
+    if (success) {
+      setLastFirebasePing(new Date().toISOString());
+    }
+    return success;
   };
 
   const triggerTelemetrySimulationNow = async () => {
@@ -667,6 +827,7 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const isAdmin = currentUser?.role === 'admin';
   const isWorker = currentUser?.role === 'farmer' || currentUser?.role === 'worker';
+  const isFirebaseLive = telemetryMode === 'LIVE' && (firebaseStatus === 'Connected' || Boolean(lastFirebasePing));
 
   const selectFarmland = (farmId: string) => {
     setActiveFarmId(farmId);
@@ -1016,8 +1177,18 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         currentUser,
         isAdmin,
         isWorker,
+        telemetryMode,
+        setTelemetryMode,
         isDemoTelemetryActive,
         toggleDemoTelemetry,
+        sensorNodes,
+        zoneSensorMapping,
+        updateZoneSensorMapping,
+        firebaseConnectionState,
+        firebaseStatus,
+        isFirebaseLive,
+        lastFirebasePing,
+        publishLiveReading,
         triggerTelemetrySimulationNow,
         clearSimulatedTelemetry,
         seedMultiFarmSystem,

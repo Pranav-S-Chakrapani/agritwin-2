@@ -227,23 +227,24 @@ export const CropVision = () => {
             )}
           </div>
 
-          {/* AI Bounding Box Overlays */}
+          {/* AI Bounding Box Overlays Matching Canonical Growth Stage */}
           {showBoundingBoxes && (
             <>
-              {/* Bounding Box 1: Ripe Fruit */}
-              <div className="absolute top-[35%] left-[42%] w-24 h-24 border-2 border-emerald-400 bg-emerald-500/10 rounded-lg pointer-events-none animate-pulse">
+              {/* Bounding Box 1: Active Growth Structure */}
+              <div className="absolute top-[35%] left-[42%] w-28 h-28 border-2 border-emerald-400 bg-emerald-500/10 rounded-lg pointer-events-none animate-pulse">
                 <span className="absolute -top-6 left-0 bg-emerald-500 text-slate-950 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider shadow-md">
-                  Ripe Fruit 98%
+                  {growthStageLabel} (96% Match)
                 </span>
               </div>
               {/* Bounding Box 2: Healthy Leaf Canopy */}
               <div className="absolute top-[20%] left-[25%] w-32 h-28 border-2 border-sky-400 bg-sky-500/10 rounded-lg pointer-events-none">
                 <span className="absolute -top-6 left-0 bg-sky-500 text-slate-950 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider shadow-md">
-                  Leaf Canopy 99%
+                  Canopy Leaf Matrix 99%
                 </span>
               </div>
             </>
           )}
+
 
           {/* HUD OVERLAY ELEMENTS */}
           {hudActive && (

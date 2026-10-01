@@ -24,6 +24,7 @@ import CameraFeed from './pages/CameraFeed';
 import MySensors from './pages/MySensors';
 import DeviceControl from './pages/DeviceControl';
 import Crops from './pages/farm-management/Crops';
+import SensorMappingAdmin from './pages/farm-management/SensorMappingAdmin';
 import FieldAuditLog from './pages/farm-management/FieldAuditLog';
 import MyFarms from './pages/MyFarms';
 import DatabaseMonitor from './pages/DatabaseMonitor';
@@ -37,6 +38,7 @@ import DeveloperTools from './pages/DeveloperTools';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsConditions from './pages/TermsConditions';
 import NotFound from './pages/NotFound';
+import FirebaseDebugPage from './pages/FirebaseDebugPage';
 
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LoadingFallback } from './components/common/LoadingFallback';
@@ -62,7 +64,7 @@ function App() {
           <UserModeProvider>
             <Router>
               <Routes>
-                {/* Public Authentication Routes */}
+                {/* Public Authentication & Debug Routes */}
                 <Route
                   path="/login"
                   element={
@@ -79,6 +81,8 @@ function App() {
                     </PublicOnlyRoute>
                   }
                 />
+                <Route path="/debug/firebase" element={<FirebaseDebugPage />} />
+
 
                 {/* Public Legal & Informational Routes */}
                 <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -131,10 +135,13 @@ function App() {
                   <Route path="sensors" element={<AdminRoute><MySensors /></AdminRoute>} />
                   <Route path="compare" element={<AdminRoute><CropComparison /></AdminRoute>} />
                   <Route path="farm-management/crops" element={<AdminRoute><Crops /></AdminRoute>} />
+                  <Route path="farm-management/sensor-mapping" element={<AdminRoute><SensorMappingAdmin /></AdminRoute>} />
+                  <Route path="sensor-mapping" element={<AdminRoute><SensorMappingAdmin /></AdminRoute>} />
                   <Route path="farm-management/audit-log" element={<AdminRoute><FieldAuditLog /></AdminRoute>} />
                   <Route path="audit-log" element={<AdminRoute><FieldAuditLog /></AdminRoute>} />
                   <Route path="users" element={<AdminRoute><UserManagement /></AdminRoute>} />
                 </Route>
+
 
                 {/* Catch-all 404 Route */}
                 <Route path="*" element={<NotFound />} />

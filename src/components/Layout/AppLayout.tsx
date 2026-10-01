@@ -13,7 +13,8 @@ import { useAgriStore } from '../../context/AgriStore';
 import { useAuth } from '../../context/AuthContext';
 
 const GlobalTopBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean }> = ({ onMenuToggle }) => {
-  const { activeFarmland, alerts } = useAgriStore();
+  const { activeFarmland, alerts, farmlands, plots, sensors, selectFarmland, isFirebaseLive } = useAgriStore();
+  const [farmDropdownOpen, setFarmDropdownOpen] = useState(false);
 
   const { userProfile, role, isAdmin } = useAuth();
 
@@ -132,33 +133,126 @@ const GlobalTopBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean }>
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Active Farm Indicator */}
-        {activeFarmland && (
-          <div
-            className="at-hide-mobile"
+        {/* Modern Farm Switcher Dropdown (Right side of Top Bar) */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setFarmDropdownOpen(!farmDropdownOpen)}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              background: 'var(--color-primary-subtle)',
-              border: '1px solid var(--color-primary-border)',
+              gap: 8,
+              padding: '6px 12px',
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-lg)',
+              cursor: 'pointer',
               flexShrink: 0,
               height: 36,
+              fontSize: 12,
+              fontWeight: 700,
+              color: 'var(--color-text-primary)',
             }}
+            id="at-topbar-farm-switcher"
           >
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)', display: 'inline-block' }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-primary-text)' }}>
-              {activeFarmland.name}
+            <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Farm:</span>
+            <span style={{ color: 'var(--color-text-primary)', fontWeight: 800 }}>
+              {activeFarmland?.name || 'Select Farm'}
             </span>
-          </div>
-        )}
+            <ChevronDown style={{ width: 14, height: 14, color: 'var(--color-text-muted)' }} />
+          </button>
 
-        {/* Live status */}
-        <div className="at-live" style={{ flexShrink: 0, height: 32, padding: '0 12px' }}>
-          <span className="at-live-dot" />
-          Live
+          {farmDropdownOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 42,
+                right: 0,
+                width: 280,
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-xl)',
+                boxShadow: 'var(--shadow-lg)',
+                padding: '8px',
+                zIndex: 50,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', padding: '4px 8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Select Active Farmland
+              </div>
+              {farmlands.map((f) => {
+                const isSelected = activeFarmland?.id === f.id;
+                const fPlots = plots.filter((p) => p.farmId === f.id);
+                const fSensors = sensors.filter((s) => s.farmId === f.id);
+
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      selectFarmland(f.id);
+                      setFarmDropdownOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-lg)',
+                      border: isSelected ? '1px solid var(--color-primary-border)' : '1px solid transparent',
+                      background: isSelected ? 'var(--color-primary-subtle)' : 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                        {f.name}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                        {fPlots.length} plots · {fSensors.length} sensors · {f.location}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        padding: '2px 6px',
+                        borderRadius: 'var(--radius-full)',
+                        background: '#dcfce7',
+                        color: '#15803d',
+                      }}
+                    >
+                      ● Online
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Live status badge */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 10px',
+            background: isFirebaseLive ? '#dcfce7' : '#ecfdf5',
+            border: '1px solid #bbf7d0',
+            borderRadius: 'var(--radius-full)',
+            flexShrink: 0,
+            height: 32,
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#15803d',
+          }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block', animation: 'at-pulse 1.5s infinite' }} />
+          <span>{isFirebaseLive ? 'Firebase Connected' : 'Live'}</span>
         </div>
 
         {/* Last updated */}

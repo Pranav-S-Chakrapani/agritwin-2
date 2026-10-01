@@ -74,7 +74,7 @@ function applyDateFilter<T extends { timestamp?: string; createdAt?: string; mea
     if (!ts) return true;
     const d = new Date(ts).getTime();
     if (filter.dateFrom && d < new Date(filter.dateFrom).getTime()) return false;
-    if (filter.dateTo && d > new Date(filter.dateTo + 'T23:59:59').getTime()) return false;
+    if (filter.dateTo && d > new Date(filter.dateTo + (filter.dateTo.includes('T') ? '' : 'T23:59:59')).getTime()) return false;
     return true;
   });
 }
@@ -144,9 +144,10 @@ export function exportTelemetry(
     filtered = filtered.filter((o) => o.sensorId === filter.sensorId);
   }
 
-  const headers = ['Timestamp', 'Farm ID', 'Plot ID', 'Sensor ID', 'Parameter', 'Value', 'Unit', 'Quality', 'Data Source', 'Notes'];
+  const headers = ['Timestamp (Local)', 'Timestamp (ISO)', 'Farm ID', 'Plot ID', 'Node ID', 'Parameter', 'Value', 'Unit', 'Quality', 'Data Source', 'Notes'];
   const rows = filtered.map((o) => [
     new Date(o.measurementTimestamp).toLocaleString(),
+    o.measurementTimestamp,
     o.farmId,
     o.plotId,
     o.sensorId,
@@ -168,6 +169,78 @@ export function exportTelemetry(
   }
 
   ActivityLogger.csvExported('Field Sensor Data', filtered.length, exportedBy);
+}
+
+export interface WideTelemetryRecord {
+  timestampIso: string;
+  timestampLocal: string;
+  nodeId: string;
+  plotId: string;
+  plotName?: string;
+  statusMode: string;
+  airTemp?: number;
+  humidity?: number;
+  lux?: number;
+  soilMoisture?: number;
+  soilPH?: number;
+  soilEC?: number;
+  nitrogen?: number;
+  phosphorus?: number;
+  potassium?: number;
+  soilTemp?: number;
+}
+
+/**
+ * Dedicated Wide-Format CSV Exporter for 10-Field Hardware Node Readings
+ */
+export function exportWideSensorReadingsCsv(
+  readings: WideTelemetryRecord[],
+  filenamePrefix = 'agritwin_sensor_history',
+  exportedBy?: string
+): void {
+  const headers = [
+    'Timestamp (Local)',
+    'Timestamp (ISO)',
+    'Node ID',
+    'Plot ID',
+    'Plot Name',
+    'Status Mode',
+    'Air Temperature (°C)',
+    'Relative Humidity (%)',
+    'Ambient Light (lux)',
+    'Soil Moisture (%)',
+    'Soil pH',
+    'Soil EC (µS/cm)',
+    'Nitrogen (mg/kg)',
+    'Phosphorus (mg/kg)',
+    'Potassium (mg/kg)',
+    'Soil Temperature (°C)',
+  ];
+
+  const rows = readings.map((r) => [
+    r.timestampLocal,
+    r.timestampIso,
+    r.nodeId,
+    r.plotId,
+    r.plotName || '',
+    r.statusMode || 'LIVE',
+    r.airTemp ?? '',
+    r.humidity ?? '',
+    r.lux ?? '',
+    r.soilMoisture ?? '',
+    r.soilPH ?? '',
+    r.soilEC ?? '',
+    r.nitrogen ?? '',
+    r.phosphorus ?? '',
+    r.potassium ?? '',
+    r.soilTemp ?? '',
+  ]);
+
+  const csv = buildCsvString(headers, rows);
+  const date = new Date().toISOString().split('T')[0];
+  downloadFile(csv, `${filenamePrefix}_${date}.csv`);
+
+  ActivityLogger.csvExported('Sensor Readings History', readings.length, exportedBy);
 }
 
 export function exportSensorHistory(
