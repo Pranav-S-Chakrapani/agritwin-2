@@ -206,8 +206,15 @@ export const DigitalTwinMap: React.FC = () => {
     return () => {
       isMounted = false;
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+        try {
+          mapInstanceRef.current.remove();
+        } catch (e) {
+          console.warn('[DigitalTwinMap] Safe map teardown error suppressed:', e);
+        }
         mapInstanceRef.current = null;
+      }
+      if (containerRef.current && (containerRef.current as any)._leaflet_id) {
+        (containerRef.current as any)._leaflet_id = null;
       }
     };
   }, []);

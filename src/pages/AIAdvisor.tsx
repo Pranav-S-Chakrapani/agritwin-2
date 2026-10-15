@@ -45,21 +45,31 @@ export const AIAdvisor: React.FC = () => {
     return telemetryObservations.find(o => o.plotId === activePlot.id || o.plotId === activePlot.code) || null;
   }, [telemetryObservations, activePlot]);
 
-  const analysisSourceLabel = useMemo(() => {
-    if (!latestObs) return 'INSUFFICIENT DATA';
-    if (latestObs.dataSource === 'SIMULATED') return 'SIMULATED DEMO DATA';
-    if (latestObs.dataSource === 'MANUAL_PROTOTYPE') return 'MANUAL PROTOTYPE DATA';
-    if (latestObs.dataSource === 'LIVE_SENSOR') return 'LIVE PHYSICAL SENSOR DATA';
-    return latestObs.dataSource;
+  const isFresh = useMemo(() => {
+    if (!latestObs?.measurementTimestamp) return false;
+    const ageMs = Date.now() - new Date(latestObs.measurementTimestamp).getTime();
+    return ageMs >= 0 && ageMs <= 30000;
   }, [latestObs]);
+
+  const analysisSourceLabel = useMemo(() => {
+    if (!latestObs) return 'NO TELEMETRY RECORDED';
+    if (latestObs.sourceClassification === 'simulated' || latestObs.dataSource === 'SIMULATED') return 'SIMULATED DATA';
+    if (latestObs.sourceClassification === 'physical' && isFresh) return 'LIVE PHYSICAL SENSOR DATA';
+    if (latestObs.sourceClassification === 'physical' || latestObs.dataSource === 'LIVE_SENSOR' || latestObs.dataSource === 'SENSOR') {
+      return 'HISTORICAL RECORD (OFFLINE)';
+    }
+    if (latestObs.dataSource === 'MANUAL_PROTOTYPE') return 'MANUAL PROTOTYPE DATA';
+    return 'UNVERIFIED / HISTORICAL DATA';
+  }, [latestObs, isFresh]);
 
   const handleAskDoctor = (e: React.FormEvent) => {
     e.preventDefault();
     if (!question.trim() || !activePlot) return;
     setAnswering(true);
     setTimeout(() => {
+      const freshnessWarning = !isFresh ? ' [Notice: Recommendations based on historical log; physical sensors are offline]' : '';
       setDoctorAnswer(
-        `Agronomic Rule Assessment for ${activePlot.code} (${assignedCrop?.name || 'Crop'}): Based on latest ${analysisSourceLabel} (Soil Moisture ${activePlot.soilMoisture}%, Temp ${activePlot.airTemp}°C, pH ${activePlot.soilPh}), micro-climate levels are within safe operating bounds. Recommend standard irrigation pulse.`
+        `Agronomic Rule Assessment for ${activePlot.code} (${assignedCrop?.name || 'Crop'}): Based on ${analysisSourceLabel} (Soil Moisture ${activePlot.soilMoisture}%, Temp ${activePlot.airTemp}°C, pH ${activePlot.soilPh})${freshnessWarning}, micro-climate levels are within safe operating bounds. Recommend standard irrigation pulse.`
       );
       setAnswering(false);
     }, 600);

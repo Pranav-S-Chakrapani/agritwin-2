@@ -186,7 +186,9 @@ export interface UserProfile {
   created_at: string;
 }
 
-export type DataSourceType = 'MANUAL_PROTOTYPE' | 'SENSOR' | 'AI_ML' | 'DERIVED' | 'SIMULATION' | 'SIMULATED' | 'LIVE_SENSOR' | 'IMPORTED' | 'AI';
+export type DataSourceType = 'MANUAL_PROTOTYPE' | 'SENSOR' | 'AI_ML' | 'DERIVED' | 'SIMULATION' | 'SIMULATED' | 'LIVE_SENSOR' | 'IMPORTED' | 'AI' | 'PHYSICAL' | 'UNKNOWN';
+
+export type TelemetrySourceClassification = 'physical' | 'simulated' | 'unknown';
 
 export interface TelemetryObservation {
   id: string;
@@ -200,8 +202,9 @@ export interface TelemetryObservation {
   unit: string;
   measurementTimestamp: string;
   receivedTimestamp: string;
-  qualityStatus: 'VALID' | 'WARNING' | 'INVALID' | 'SUSPECT';
+  qualityStatus: 'VALID' | 'WARNING' | 'INVALID' | 'SUSPECT' | 'PROVISIONAL';
   dataSource: DataSourceType;
+  sourceClassification?: TelemetrySourceClassification;
   notes?: string;
   metadata?: Record<string, any>;
 }

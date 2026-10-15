@@ -421,9 +421,23 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       qualityStatus = 'SUSPECT';
     }
 
+    // Explicit Phase 4 source classification
+    let sourceClassification = obs.sourceClassification;
+    if (!sourceClassification) {
+      if (obs.dataSource === 'SIMULATED') {
+        sourceClassification = 'simulated';
+      } else if (obs.dataSource === 'LIVE_SENSOR') {
+        const age = Date.now() - new Date(obs.measurementTimestamp).getTime();
+        sourceClassification = age <= 30000 ? 'physical' : 'unknown';
+      } else {
+        sourceClassification = 'unknown';
+      }
+    }
+
     return {
       ...obs,
       qualityStatus: qualityStatus as any,
+      sourceClassification,
     };
   };
 
@@ -434,72 +448,83 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Validate at the ingestion boundary
     const validatedIncoming = incomingObs.map(validateAndTagTelemetry);
 
+    // 1. Update observations cleanly
     setTelemetryObservations((prev) => {
       const obsMap = new Map<string, TelemetryObservation>();
       (prev || []).forEach((o) => { if (o && o.id) obsMap.set(o.id, o); });
       validatedIncoming.forEach((o) => { if (o && o.id) obsMap.set(o.id, o); });
 
       const validObs = Array.from(obsMap.values()).filter((o) => o && o.id && o.measurementTimestamp);
-      const mergedList = validObs.sort((a, b) => {
+      return validObs.sort((a, b) => {
         const tA = new Date(a.measurementTimestamp).getTime() || 0;
         const tB = new Date(b.measurementTimestamp).getTime() || 0;
         return tB - tA;
       });
+    });
 
-      // Update plot live telemetry state
-      setPlots((prevPlots) => {
-        const updatedPlots = prevPlots.map((plot) => {
-          const plotObs = mergedList.filter((o) => o.plotId === plot.id || o.plotId === plot.code);
-          if (plotObs.length === 0) return plot;
+    // 2. Update plot live telemetry state cleanly without nested setState
+    setPlots((prevPlots) => {
+      let changed = false;
+      const updatedPlots = prevPlots.map((plot) => {
+        const plotObs = validatedIncoming.filter((o) => o.plotId === plot.id || o.plotId === plot.code);
+        if (plotObs.length === 0) return plot;
 
-          const latestSm = plotObs.find((o) => o.parameterKey === 'soil_moisture' && o.qualityStatus !== 'SUSPECT');
-          const latestTemp = plotObs.find((o) => (o.parameterKey === 'air_temperature' || o.parameterKey === 'soil_temperature') && o.qualityStatus !== 'SUSPECT');
-          const latestPh = plotObs.find((o) => o.parameterKey === 'soil_ph' && o.qualityStatus !== 'SUSPECT');
-          const latestHum = plotObs.find((o) => o.parameterKey === 'humidity' && o.qualityStatus !== 'SUSPECT');
+        const latestSm = plotObs.find((o) => o.parameterKey === 'soil_moisture' && o.qualityStatus !== 'SUSPECT');
+        const latestTemp = plotObs.find((o) => (o.parameterKey === 'air_temperature' || o.parameterKey === 'soil_temperature') && o.qualityStatus !== 'SUSPECT');
+        const latestPh = plotObs.find((o) => o.parameterKey === 'soil_ph' && o.qualityStatus !== 'SUSPECT');
+        const latestHum = plotObs.find((o) => o.parameterKey === 'humidity' && o.qualityStatus !== 'SUSPECT');
 
-          const newSm = latestSm ? latestSm.value : plot.soilMoisture;
-          const newTemp = latestTemp ? latestTemp.value : plot.airTemp;
-          const newPh = latestPh ? latestPh.value : plot.soilPh;
-          const newHum = latestHum ? latestHum.value : plot.humidity;
+        if (!latestSm && !latestTemp && !latestPh && !latestHum) return plot;
+        changed = true;
 
-          // Dynamically compute soil health score based on agronomic thresholds
-          let healthScore = 95;
-          if (newSm < 30 || newSm > 80) healthScore -= 12;
-          else if (newSm < 40 || newSm > 70) healthScore -= 5;
-          if (newTemp < 15 || newTemp > 35) healthScore -= 10;
-          else if (newTemp < 18 || newTemp > 30) healthScore -= 4;
-          if (newPh < 5.8 || newPh > 7.5) healthScore -= 8;
+        const newSm = latestSm ? latestSm.value : plot.soilMoisture;
+        const newTemp = latestTemp ? latestTemp.value : plot.airTemp;
+        const newPh = latestPh ? latestPh.value : plot.soilPh;
+        const newHum = latestHum ? latestHum.value : plot.humidity;
 
-          return {
-            ...plot,
-            soilMoisture: newSm,
-            airTemp: newTemp,
-            soilPh: newPh,
-            humidity: newHum,
-            soilHealthScore: Math.max(50, Math.min(99, healthScore)),
-          };
-        });
+        // Dynamically compute soil health score based on agronomic thresholds
+        let healthScore = 95;
+        if (newSm < 30 || newSm > 80) healthScore -= 12;
+        else if (newSm < 40 || newSm > 70) healthScore -= 5;
+        if (newTemp < 15 || newTemp > 35) healthScore -= 10;
+        else if (newTemp < 18 || newTemp > 30) healthScore -= 4;
+        if (newPh < 5.8 || newPh > 7.5) healthScore -= 8;
 
-        // Run alert evaluation on updated plots
-        updatedPlots.forEach((p) => {
-          setAlerts((currentAlerts) => {
-            const newAlerts = evaluatePlotAlerts(p, currentAlerts);
-            if (newAlerts.length > 0) {
-              newAlerts.forEach((na) => {
-                saveAlertToSupabase(na);
-                ActivityLogger.alertGenerated(na.title, na.farmId, na.plotId);
-              });
-              return [...newAlerts, ...currentAlerts];
-            }
-            return currentAlerts;
-          });
-        });
-
-        return updatedPlots;
+        return {
+          ...plot,
+          soilMoisture: newSm,
+          airTemp: newTemp,
+          soilPh: newPh,
+          humidity: newHum,
+          soilHealthScore: Math.max(50, Math.min(99, healthScore)),
+        };
       });
 
-      return mergedList;
+      return changed ? updatedPlots : prevPlots;
     });
+
+    // 3. Evaluate alerts asynchronously without nesting inside state updater
+    setTimeout(() => {
+      setPlots((currentPlots) => {
+        currentPlots.forEach((p) => {
+          const hasMatchingObs = validatedIncoming.some((o) => o.plotId === p.id || o.plotId === p.code);
+          if (hasMatchingObs) {
+            setAlerts((currentAlerts) => {
+              const newAlerts = evaluatePlotAlerts(p, currentAlerts);
+              if (newAlerts.length > 0) {
+                newAlerts.forEach((na) => {
+                  saveAlertToSupabase(na);
+                  ActivityLogger.alertGenerated(na.title, na.farmId, na.plotId);
+                });
+                return [...newAlerts, ...currentAlerts];
+              }
+              return currentAlerts;
+            });
+          }
+        });
+        return currentPlots;
+      });
+    }, 0);
   }, []);
 
   // Listen to Firebase Connection Status

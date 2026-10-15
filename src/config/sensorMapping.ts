@@ -3,7 +3,15 @@
  * IIIT Dharwad Agricultural Research Farm
  */
 
-export type NodeOperationalStatus = 'LIVE' | 'OFFLINE' | 'CALIBRATING';
+export type NodeOperationalStatus =
+  | 'LIVE'
+  | 'SIMULATED'
+  | 'STALE'
+  | 'OFFLINE'
+  | 'NO_DATA'
+  | 'UNKNOWN_SOURCE'
+  | 'CONNECTION_ERROR'
+  | 'CALIBRATING';
 
 export type TelemetryFieldKey =
   | 'airTemp'
@@ -37,7 +45,9 @@ export interface SensorNode {
   soilTemp?: number;
   battery?: number;
   isOnline: boolean;
-  statusMode?: NodeOperationalStatus; // 'LIVE' | 'OFFLINE' | 'CALIBRATING'
+  statusMode?: NodeOperationalStatus;
+  freshnessStatus?: NodeOperationalStatus;
+  sourceClassification?: 'physical' | 'simulated' | 'unknown';
   isCalibrating?: boolean;
   fieldProvisionalFlags?: Record<TelemetryFieldKey, boolean>;
   lastUpdated?: string;

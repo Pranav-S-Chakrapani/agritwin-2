@@ -24,11 +24,11 @@ export function useSensorStatus(nodeId: string): EvaluatedNodeStatus & {
   const { sensorNodes } = useAgriStore();
   const [ticker, setTicker] = useState(0);
 
-  // 1-second heartbeat ticker
+  // 5-second heartbeat ticker to evaluate freshness transitions without freezing UI
   useEffect(() => {
     const interval = setInterval(() => {
       setTicker((prev) => (prev + 1) % 10000);
-    }, 1000);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -37,9 +37,14 @@ export function useSensorStatus(nodeId: string): EvaluatedNodeStatus & {
   const evaluated = useMemo(() => {
     const rawStatus = node?.raw?.status;
     const lastUpdated = node?.lastUpdated;
-    return firebaseTelemetry.evaluateNodeLiveness(nodeId, rawStatus, lastUpdated, FRESHNESS_THRESHOLD_MS);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodeId, node?.lastUpdated, node?.raw?.status, ticker]);
+    return firebaseTelemetry.evaluateNodeLiveness(
+      nodeId,
+      rawStatus,
+      lastUpdated,
+      FRESHNESS_THRESHOLD_MS,
+      node?.raw
+    );
+  }, [nodeId, node?.lastUpdated, node?.raw?.status, node?.raw, ticker]);
 
   const toggleCalibrating = useCallback(() => {
     const currentState = firebaseTelemetry.getCalibratingState(nodeId);
@@ -75,10 +80,11 @@ export function useAllSensorsStatus(): AllNodesStatusSummary {
   const { sensorNodes } = useAgriStore();
   const [ticker, setTicker] = useState(0);
 
+  // 5-second heartbeat ticker
   useEffect(() => {
     const interval = setInterval(() => {
       setTicker((prev) => (prev + 1) % 10000);
-    }, 1000);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -88,33 +94,25 @@ export function useAllSensorsStatus(): AllNodesStatusSummary {
     let offlineCount = 0;
     let calibratingCount = 0;
 
-    const nodesList = nodeIds.map((nodeId, idx) => {
+    const nodesList = nodeIds.map((nodeId) => {
       const existing = sensorNodes?.[nodeId];
-      const fallbackTime = idx <= 2 ? new Date(1788423829213).toISOString() : new Date(1775812812526).toISOString();
 
+      // Strictly preserve existing data; if not yet received, mark with honest NO_DATA state
       const node: SensorNode = existing || {
         id: nodeId,
         name: `Sensor ${nodeId}`,
-        airTemp: idx === 1 ? 35.5 : idx === 2 ? 35.7 : idx === 3 ? 22.8 : idx === 4 ? 22.9 : idx === 5 ? 24.4 : 25.3,
-        humidity: idx === 1 ? 68.8 : idx === 2 ? 65.9 : 52.8,
-        soilMoisture: idx === 1 ? 5 : idx === 2 ? 8.3 : 0,
-        soilPH: idx === 1 ? 0.5 : idx === 2 ? 0.83 : 0,
-        lux: idx === 1 ? 2760 : idx === 2 ? 1348 : 142.5,
-        nitrogen: idx === 1 ? 50 : idx === 2 ? 83 : 0,
-        phosphorus: idx === 1 ? 50 : idx === 2 ? 83 : 0,
-        potassium: idx === 1 ? 50 : idx === 2 ? 83 : 0,
-        soilEC: idx === 1 ? 50 : idx === 2 ? 83 : 0,
-        soilTemp: idx === 1 ? 5 : idx === 2 ? 8.3 : 0,
-        battery: 95,
         isOnline: false,
-        lastUpdated: fallbackTime,
+        statusMode: 'NO_DATA',
+        freshnessStatus: 'NO_DATA',
+        sourceClassification: 'unknown',
       };
 
       const evaluated = firebaseTelemetry.evaluateNodeLiveness(
         nodeId,
         node.raw?.status,
         node.lastUpdated,
-        FRESHNESS_THRESHOLD_MS
+        FRESHNESS_THRESHOLD_MS,
+        node.raw
       );
 
       if (evaluated.statusMode === 'CALIBRATING') {
@@ -129,6 +127,8 @@ export function useAllSensorsStatus(): AllNodesStatusSummary {
         ...node,
         isOnline: evaluated.isLive,
         statusMode: evaluated.statusMode,
+        freshnessStatus: evaluated.statusMode,
+        sourceClassification: evaluated.sourceClassification,
         isCalibrating: evaluated.isCalibrating,
         fieldProvisionalFlags: evaluated.fieldProvisionalFlags,
         evaluated,
@@ -142,6 +142,5 @@ export function useAllSensorsStatus(): AllNodesStatusSummary {
       offlineCount,
       calibratingCount,
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sensorNodes, ticker]);
 }

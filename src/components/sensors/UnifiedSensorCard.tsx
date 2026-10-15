@@ -105,6 +105,41 @@ export const UnifiedSensorCard: React.FC<UnifiedSensorCardProps> = ({
     badgeColor = '#15803d';
     badgeDot = '#16a34a';
     badgeText = 'LIVE';
+  } else if (statusMode === 'SIMULATED') {
+    cardBg = '#f0f9ff';
+    cardBorder = '#bae6fd';
+    badgeBg = '#e0f2fe';
+    badgeColor = '#0369a1';
+    badgeDot = '#0284c7';
+    badgeText = 'SIMULATED';
+  } else if (statusMode === 'STALE') {
+    cardBg = '#fffbeb';
+    cardBorder = '#fde68a';
+    badgeBg = '#fef3c7';
+    badgeColor = '#b45309';
+    badgeDot = '#d97706';
+    badgeText = 'STALE';
+  } else if (statusMode === 'NO_DATA') {
+    cardBg = '#f8fafc';
+    cardBorder = '#e2e8f0';
+    badgeBg = '#f1f5f9';
+    badgeColor = '#64748b';
+    badgeDot = '#94a3b8';
+    badgeText = 'NO DATA';
+  } else if (statusMode === 'CONNECTION_ERROR') {
+    cardBg = '#fef2f2';
+    cardBorder = '#fecaca';
+    badgeBg = '#fee2e2';
+    badgeColor = '#b91c1c';
+    badgeDot = '#dc2626';
+    badgeText = 'CONN ERROR';
+  } else if (statusMode === 'UNKNOWN_SOURCE') {
+    cardBg = '#f8fafc';
+    cardBorder = '#cbd5e1';
+    badgeBg = '#f1f5f9';
+    badgeColor = '#475569';
+    badgeDot = '#64748b';
+    badgeText = 'UNKNOWN';
   }
 
   const renderProvisionalBadge = (fieldKey: TelemetryFieldKey) => {

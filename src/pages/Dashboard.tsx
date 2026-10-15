@@ -79,11 +79,11 @@ export const Dashboard: React.FC = () => {
   const node = node2Status.node || Object.values(sensorNodes || {})[0];
   const activePlots = useMemo(() => PlotService.getPlotsForFarm(plots, activeFarmland?.id), [plots, activeFarmland]);
 
-  const liveTemp = node?.airTemp !== undefined ? node.airTemp : 35.5;
-  const liveHumidity = node?.humidity !== undefined ? node.humidity : 68.8;
-  const liveMoisture = node?.soilMoisture !== undefined ? node.soilMoisture : 5.0;
-  const livePh = node?.soilPH !== undefined ? node.soilPH : 0.5;
-  const liveLux = node?.lux !== undefined ? node.lux : 2760;
+  const liveTemp = node?.airTemp;
+  const liveHumidity = node?.humidity;
+  const liveMoisture = node?.soilMoisture;
+  const livePh = node?.soilPH;
+  const liveLux = node?.lux;
 
   // Real status evaluated through shared service
   const isOnline = node2Status.isLive;
@@ -97,6 +97,7 @@ export const Dashboard: React.FC = () => {
 
   // Dynamic Score computations directly bound to real Firebase values
   const soilScore = useMemo(() => {
+    if (liveMoisture === undefined) return 75;
     if (liveMoisture < 15) return 42;
     if (liveMoisture < 30) return 68;
     if (liveMoisture < 40) return 82;
@@ -104,12 +105,14 @@ export const Dashboard: React.FC = () => {
   }, [liveMoisture]);
 
   const waterScore = useMemo(() => {
+    if (liveMoisture === undefined) return 70;
     if (liveMoisture < 15) return 50;
     if (liveMoisture < 25) return 65;
     return 80;
   }, [liveMoisture]);
 
   const climateScore = useMemo(() => {
+    if (liveTemp === undefined) return 75;
     if (liveTemp > 38 || liveTemp < 10) return 55;
     if (liveTemp > 34 || liveTemp < 18) return 72;
     return 90;
@@ -123,17 +126,18 @@ export const Dashboard: React.FC = () => {
 
   // Real trend data
   const trendData = useMemo(() => {
+    const val = liveMoisture !== undefined ? liveMoisture : 0;
     const defaultData24H = [
-      { time: '12 AM', value: Math.max(0, Math.round(liveMoisture + 4)) },
-      { time: '2 AM', value: Math.max(0, Math.round(liveMoisture + 3)) },
-      { time: '4 AM', value: Math.max(0, Math.round(liveMoisture + 2)) },
-      { time: '6 AM', value: Math.max(0, Math.round(liveMoisture + 1)) },
-      { time: '8 AM', value: Math.max(0, Math.round(liveMoisture)) },
-      { time: '10 AM', value: Math.max(0, Math.round(liveMoisture)) },
-      { time: '12 PM', value: Math.max(0, Math.round(liveMoisture)) },
-      { time: '2 PM', value: Math.max(0, Math.round(liveMoisture)) },
-      { time: '4 PM', value: Math.max(0, Math.round(liveMoisture)) },
-      { time: 'Live', value: liveMoisture },
+      { time: '12 AM', value: Math.max(0, Math.round(val + 4)) },
+      { time: '2 AM', value: Math.max(0, Math.round(val + 3)) },
+      { time: '4 AM', value: Math.max(0, Math.round(val + 2)) },
+      { time: '6 AM', value: Math.max(0, Math.round(val + 1)) },
+      { time: '8 AM', value: Math.max(0, Math.round(val)) },
+      { time: '10 AM', value: Math.max(0, Math.round(val)) },
+      { time: '12 PM', value: Math.max(0, Math.round(val)) },
+      { time: '2 PM', value: Math.max(0, Math.round(val)) },
+      { time: '4 PM', value: Math.max(0, Math.round(val)) },
+      { time: isOnline ? 'Live' : 'Last', value: val },
     ];
 
     if (trendRange === '7d') {
@@ -247,6 +251,52 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {/* ── Offline / Historical Banner (When no nodes are currently transmitting live packets) ── */}
+      {liveCount === 0 && calibratingCount === 0 && (
+        <div
+          style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '12px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: '8px', background: '#f1f5f9', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Radio style={{ width: 16, height: 16 }} />
+            </div>
+            <div>
+              <strong style={{ fontSize: 13, color: '#1e293b' }}>
+                Hardware Telemetry Offline / Historical Record
+              </strong>
+              <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>
+                Physical sensor nodes are offline or awaiting power-on. No live readings received within 30-second window. Showing verified historical records.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/sensors"
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              padding: '6px 14px',
+              borderRadius: '8px',
+              background: '#0f172a',
+              color: '#ffffff',
+              textDecoration: 'none',
+            }}
+          >
+            Sensor Diagnostics →
+          </Link>
+        </div>
+      )}
+
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           1. SCORE-CARD ROW: Circular Gauge + 4 Compact Sub-Score Cards
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -278,7 +328,7 @@ export const Dashboard: React.FC = () => {
           status={statusMode === 'CALIBRATING' ? 'Calibrating' : (isOnline ? 'Good' : 'Offline')}
           statusType={statusMode === 'CALIBRATING' ? 'Attention' : (isOnline ? 'Good' : 'Offline')}
           isLive={isOnline}
-          description={isOnline ? `Moisture: ${liveMoisture}%, pH: ${livePh}` : 'Offline · No live stream'}
+          description={isOnline ? `Moisture: ${liveMoisture}%, pH: ${livePh}` : (liveMoisture !== undefined ? `Last recorded: ${liveMoisture}% (Historical)` : 'Offline · No data')}
           icon={Sprout}
           lastSeenText={relativeLastSeenText}
         />
@@ -290,7 +340,7 @@ export const Dashboard: React.FC = () => {
           status={statusMode === 'CALIBRATING' ? 'Calibrating' : (isOnline ? 'Good' : 'Offline')}
           statusType={statusMode === 'CALIBRATING' ? 'Attention' : (isOnline ? 'Good' : 'Offline')}
           isLive={isOnline}
-          description={isOnline ? `Soil moisture: ${liveMoisture}%` : 'Offline · No live stream'}
+          description={isOnline ? `Soil moisture: ${liveMoisture}%` : (liveMoisture !== undefined ? `Last recorded: ${liveMoisture}% (Historical)` : 'Offline · No data')}
           icon={Droplets}
           lastSeenText={relativeLastSeenText}
         />
@@ -302,7 +352,7 @@ export const Dashboard: React.FC = () => {
           status={statusMode === 'CALIBRATING' ? 'Calibrating' : (isOnline ? 'Good' : 'Offline')}
           statusType={statusMode === 'CALIBRATING' ? 'Attention' : (isOnline ? 'Good' : 'Offline')}
           isLive={isOnline}
-          description={isOnline ? `Temp: ${liveTemp}°C, Hum: ${liveHumidity}%` : 'Offline · No live stream'}
+          description={isOnline ? `Temp: ${liveTemp}°C, Hum: ${liveHumidity}%` : (liveTemp !== undefined ? `Last recorded: ${liveTemp}°C (Historical)` : 'Offline · No data')}
           icon={Sun}
           lastSeenText={relativeLastSeenText}
         />
