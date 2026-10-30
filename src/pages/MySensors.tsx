@@ -11,6 +11,7 @@ import {
   Building2,
   Sliders,
   Filter,
+  Clock,
 } from 'lucide-react';
 import { useAgriStore } from '../context/AgriStore';
 import { UnifiedSensorCard } from '../components/sensors/UnifiedSensorCard';
@@ -19,9 +20,9 @@ import { useAllSensorsStatus } from '../hooks/useSensorStatus';
 
 export const MySensors: React.FC = () => {
   const { activeSections: plots, activeFarmland, crops } = useAgriStore();
-  const { nodesList, totalCount, liveCount, offlineCount, calibratingCount } = useAllSensorsStatus();
+  const { nodesList, totalCount, liveCount, offlineCount, calibratingCount, pendingCount } = useAllSensorsStatus();
 
-  const [filterMode, setFilterMode] = useState<'ALL' | 'LIVE' | 'CALIBRATING' | 'OFFLINE'>('ALL');
+  const [filterMode, setFilterMode] = useState<'ALL' | 'ONLINE' | 'CALIBRATING' | 'PENDING' | 'OFFLINE'>('ALL');
   const [inspectNodeId, setInspectNodeId] = useState<string | null>(null);
 
   const [expandedPlots, setExpandedPlots] = useState<Record<string, boolean>>({
@@ -56,6 +57,7 @@ export const MySensors: React.FC = () => {
   // Apply Filter
   const filteredNodes = useMemo(() => {
     if (filterMode === 'ALL') return enrichedNodes;
+    if (filterMode === 'ONLINE') return enrichedNodes.filter((n) => n.statusMode === 'ONLINE' || n.statusMode === 'LIVE');
     return enrichedNodes.filter((n) => n.statusMode === filterMode);
   }, [enrichedNodes, filterMode]);
 
@@ -111,7 +113,7 @@ export const MySensors: React.FC = () => {
       </div>
 
       {/* ── KPI Row: Ground-Truth Node Status ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
         <div className="at-metric-card" onClick={() => setFilterMode('ALL')} style={{ cursor: 'pointer' }}>
           <div className="at-metric-label">
             Total Hardware Nodes
@@ -121,15 +123,24 @@ export const MySensors: React.FC = () => {
           <div className="at-metric-sub">Node_1 through Node_7</div>
         </div>
 
-        <div className="at-metric-card" onClick={() => setFilterMode('LIVE')} style={{ cursor: 'pointer' }}>
+        <div className="at-metric-card" onClick={() => setFilterMode('ONLINE')} style={{ cursor: 'pointer' }}>
           <div className="at-metric-label">
-            Live Online
+            Online (Transmitting)
             <div className="at-metric-icon" style={{ background: 'var(--color-success-bg)' }}><CheckCircle2 style={{ width: 16, height: 16, color: 'var(--color-success)' }} /></div>
           </div>
           <div className="at-metric-value" style={{ color: liveCount > 0 ? '#16a34a' : '#64748b' }}>
             {liveCount}
           </div>
-          <div className="at-metric-sub">Confirmed finalized placement</div>
+          <div className="at-metric-sub">Node 2 live physical telemetry</div>
+        </div>
+
+        <div className="at-metric-card" onClick={() => setFilterMode('PENDING')} style={{ cursor: 'pointer' }}>
+          <div className="at-metric-label">
+            Pending Integration
+            <div className="at-metric-icon" style={{ background: '#f1f5f9' }}><Clock style={{ width: 16, height: 16, color: '#64748b' }} /></div>
+          </div>
+          <div className="at-metric-value" style={{ color: '#64748b' }}>{pendingCount}</div>
+          <div className="at-metric-sub">Node 3 & Node 4 hardware pending</div>
         </div>
 
         <div className="at-metric-card" onClick={() => setFilterMode('CALIBRATING')} style={{ cursor: 'pointer' }}>
@@ -158,7 +169,7 @@ export const MySensors: React.FC = () => {
             <Filter style={{ width: 14, height: 14 }} />
             Filter Nodes:
           </span>
-          {(['ALL', 'LIVE', 'CALIBRATING', 'OFFLINE'] as const).map((mode) => (
+          {(['ALL', 'ONLINE', 'PENDING', 'CALIBRATING', 'OFFLINE'] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setFilterMode(mode)}
@@ -174,7 +185,7 @@ export const MySensors: React.FC = () => {
                 transition: 'all 0.15s ease',
               }}
             >
-              {mode === 'ALL' ? `All (${totalCount})` : mode === 'LIVE' ? `Live (${liveCount})` : mode === 'CALIBRATING' ? `Calibrating (${calibratingCount})` : `Offline (${offlineCount})`}
+              {mode === 'ALL' ? `All (${totalCount})` : mode === 'ONLINE' ? `Online (${liveCount})` : mode === 'PENDING' ? `Pending (${pendingCount})` : mode === 'CALIBRATING' ? `Calibrating (${calibratingCount})` : `Offline (${offlineCount})`}
             </button>
           ))}
         </div>

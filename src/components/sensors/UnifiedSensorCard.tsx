@@ -91,20 +91,34 @@ export const UnifiedSensorCard: React.FC<UnifiedSensorCardProps> = ({
   let badgeDot = '#94a3b8';
   let badgeText = 'OFFLINE';
 
-  if (statusMode === 'CALIBRATING') {
+  if (statusMode === 'PENDING') {
+    cardBg = '#f8fafc';
+    cardBorder = '#cbd5e1';
+    badgeBg = '#f1f5f9';
+    badgeColor = '#64748b';
+    badgeDot = '#94a3b8';
+    badgeText = 'PENDING INTEGRATION';
+  } else if (statusMode === 'ERROR') {
+    cardBg = '#fef2f2';
+    cardBorder = '#fecaca';
+    badgeBg = '#fee2e2';
+    badgeColor = '#b91c1c';
+    badgeDot = '#dc2626';
+    badgeText = 'HARDWARE FAULT';
+  } else if (statusMode === 'ONLINE' || statusMode === 'LIVE') {
+    cardBg = '#ffffff';
+    cardBorder = '#bbf7d0';
+    badgeBg = '#dcfce7';
+    badgeColor = '#15803d';
+    badgeDot = '#16a34a';
+    badgeText = isCalibrating ? 'ONLINE (CALIBRATING)' : 'ONLINE';
+  } else if (statusMode === 'CALIBRATING') {
     cardBg = '#fffdfa';
     cardBorder = '#fed7aa';
     badgeBg = '#ffedd5';
     badgeColor = '#c2410c';
     badgeDot = '#f97316';
     badgeText = 'CALIBRATING';
-  } else if (statusMode === 'LIVE') {
-    cardBg = '#ffffff';
-    cardBorder = '#bbf7d0';
-    badgeBg = '#dcfce7';
-    badgeColor = '#15803d';
-    badgeDot = '#16a34a';
-    badgeText = 'LIVE';
   } else if (statusMode === 'SIMULATED') {
     cardBg = '#f0f9ff';
     cardBorder = '#bae6fd';

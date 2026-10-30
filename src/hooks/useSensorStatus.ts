@@ -70,6 +70,7 @@ export interface AllNodesStatusSummary {
   liveCount: number;
   offlineCount: number;
   calibratingCount: number;
+  pendingCount: number;
 }
 
 /**
@@ -93,17 +94,19 @@ export function useAllSensorsStatus(): AllNodesStatusSummary {
     let liveCount = 0;
     let offlineCount = 0;
     let calibratingCount = 0;
+    let pendingCount = 0;
 
     const nodesList = nodeIds.map((nodeId) => {
       const existing = sensorNodes?.[nodeId];
 
-      // Strictly preserve existing data; if not yet received, mark with honest NO_DATA state
+      // Strictly preserve existing data; if not yet received, mark with honest NO_DATA/PENDING state
+      const defaultStatus: NodeOperationalStatus = (nodeId === 'Node_3' || nodeId === 'Node_4') ? 'PENDING' : 'NO_DATA';
       const node: SensorNode = existing || {
         id: nodeId,
         name: `Sensor ${nodeId}`,
         isOnline: false,
-        statusMode: 'NO_DATA',
-        freshnessStatus: 'NO_DATA',
+        statusMode: defaultStatus,
+        freshnessStatus: defaultStatus,
         sourceClassification: 'unknown',
       };
 
@@ -115,9 +118,11 @@ export function useAllSensorsStatus(): AllNodesStatusSummary {
         node.raw
       );
 
-      if (evaluated.statusMode === 'CALIBRATING') {
+      if (evaluated.statusMode === 'PENDING') {
+        pendingCount++;
+      } else if (evaluated.statusMode === 'CALIBRATING') {
         calibratingCount++;
-      } else if (evaluated.statusMode === 'LIVE') {
+      } else if (evaluated.statusMode === 'LIVE' || evaluated.statusMode === 'ONLINE') {
         liveCount++;
       } else {
         offlineCount++;
@@ -141,6 +146,7 @@ export function useAllSensorsStatus(): AllNodesStatusSummary {
       liveCount,
       offlineCount,
       calibratingCount,
+      pendingCount,
     };
   }, [sensorNodes, ticker]);
 }

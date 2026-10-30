@@ -4,19 +4,21 @@ import { getDatabase, Database, ref, onValue, off, set, update, push, serverTime
 
 const env = (typeof import.meta !== 'undefined' && (import.meta as any).env) || {};
 
+// Client's verified Firebase Realtime Database project URL
+export const DEFAULT_FIREBASE_RTDB_URL = 'https://digital-twin-f5d49-default-rtdb.asia-southeast1.firebasedatabase.app';
+
 export const FIREBASE_CONFIG = {
-  apiKey: env.VITE_FIREBASE_API_KEY || '',
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  databaseURL: env.VITE_FIREBASE_DATABASE_URL || '',
-  projectId: env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  apiKey: env.VITE_FIREBASE_API_KEY || 'default-open-rtdb-key',
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || 'digital-twin-f5d49.firebaseapp.com',
+  databaseURL: env.VITE_FIREBASE_DATABASE_URL || DEFAULT_FIREBASE_RTDB_URL,
+  projectId: env.VITE_FIREBASE_PROJECT_ID || 'digital-twin-f5d49',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || 'digital-twin-f5d49.appspot.com',
   messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
   appId: env.VITE_FIREBASE_APP_ID || '',
 };
 
 export const isFirebaseConfigured = Boolean(
   FIREBASE_CONFIG.databaseURL &&
-  FIREBASE_CONFIG.apiKey &&
   !FIREBASE_CONFIG.databaseURL.includes('your-app')
 );
 

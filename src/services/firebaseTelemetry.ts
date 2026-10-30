@@ -211,22 +211,40 @@ class FirebaseTelemetryService {
       }
     }
 
-    // 0. No data recorded
-    if (!hasValidTime) {
+    // 0. Pending / Waiting for initial activation or data
+    const isPendingNode = (nodeId === 'Node_3' || nodeId === 'Node_4' || nodeId === 'Node_1' || nodeId === 'Node_5' || nodeId === 'Node_6' || nodeId === 'Node_7') && (!hasValidTime || ageMs > 24 * 60 * 60 * 1000);
+    if (!hasValidTime || isPendingNode) {
+      const isExplicitPending = nodeId === 'Node_3' || nodeId === 'Node_4';
       return {
         isLive: false,
-        statusMode: 'NO_DATA',
-        statusText: 'No Data',
+        statusMode: isExplicitPending ? 'PENDING' : 'NO_DATA',
+        statusText: isExplicitPending ? 'Pending · Hardware Awaiting' : 'No Data',
         badgeColor: 'muted',
         ageMs,
         isCalibrating: false,
-        relativeTimeText: 'No data recorded',
+        relativeTimeText: isExplicitPending ? 'Pending hardware integration' : 'No data recorded',
         sourceClassification: 'unknown',
         fieldProvisionalFlags: nodeFieldFlags,
       };
     }
 
-    // 1. Explicit offline from device flag
+    // 1. Explicit error / failure status
+    if (normalizedStatus.includes('error') || normalizedStatus.includes('fail')) {
+      // If data is very recent, it is transmitting but reporting a sensor hardware/probe error
+      return {
+        isLive: ageMs <= thresholdMs,
+        statusMode: 'ERROR',
+        statusText: 'Sensor Fault / Probe Error',
+        badgeColor: 'danger',
+        ageMs,
+        isCalibrating,
+        relativeTimeText,
+        sourceClassification,
+        fieldProvisionalFlags: nodeFieldFlags,
+      };
+    }
+
+    // 2. Explicit offline from device flag
     if (normalizedStatus === 'offline' || normalizedStatus === 'inactive' || normalizedStatus === 'dead') {
       return {
         isLive: false,
@@ -241,7 +259,7 @@ class FirebaseTelemetryService {
       };
     }
 
-    // 2. Simulated data
+    // 3. Simulated data
     if (sourceClassification === 'simulated') {
       return {
         isLive: ageMs <= thresholdMs,
@@ -256,7 +274,7 @@ class FirebaseTelemetryService {
       };
     }
 
-    // 3. Stale timestamp (> 30 seconds)
+    // 4. Stale timestamp (> 30 seconds)
     if (ageMs > thresholdMs) {
       const isVeryOld = ageMs > 60 * 60 * 1000;
       return {
@@ -272,13 +290,13 @@ class FirebaseTelemetryService {
       };
     }
 
-    // 4. Actively transmitting physical sensor in calibration mode
+    // 5. Actively transmitting physical sensor in calibration mode
     if (isCalibrating) {
       return {
         isLive: true,
-        statusMode: 'CALIBRATING',
-        statusText: 'Calibrating',
-        badgeColor: 'warning',
+        statusMode: 'ONLINE',
+        statusText: 'Online (Calibrating)',
+        badgeColor: 'success',
         ageMs,
         isCalibrating: true,
         relativeTimeText,
@@ -287,11 +305,11 @@ class FirebaseTelemetryService {
       };
     }
 
-    // 5. Genuinely transmitting physical live sensor
+    // 6. Genuinely transmitting physical live sensor
     return {
       isLive: true,
-      statusMode: 'LIVE',
-      statusText: 'Live',
+      statusMode: 'ONLINE',
+      statusText: 'Online',
       badgeColor: 'success',
       ageMs,
       isCalibrating: false,

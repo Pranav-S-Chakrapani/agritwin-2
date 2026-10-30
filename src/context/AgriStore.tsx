@@ -547,13 +547,13 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setLastFirebasePing(nowStr);
           setSensorNodes(nodes);
 
-          // Update active plots using zoneSensorMapping from live nodes
+          // Update active plots using zoneSensorMapping strictly from active transmitting nodes
           setPlots((prevPlots) => {
             return prevPlots.map((plot, idx) => {
               const zoneKey = `zone-${idx + 1}`;
               const assignedNodes = zoneSensorMapping[zoneKey] || [`Node_${idx + 1}`];
               
-              // Find first available sensor node data for this zone
+              // Find matching sensor node data for this zone
               let matchedNode: SensorNode | undefined;
               for (const nid of assignedNodes) {
                 if (nodes[nid]) {
@@ -562,12 +562,10 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 }
               }
 
-              if (!matchedNode) {
-                // Fallback by key matching
-                matchedNode = nodes[`Node_${idx + 1}`] || nodes[`Node_${idx + 2}`];
+              // Do not bleed other node values or invent readings for pending/inactive zones
+              if (!matchedNode || matchedNode.statusMode === 'PENDING' || matchedNode.statusMode === 'NO_DATA') {
+                return plot;
               }
-
-              if (!matchedNode) return plot;
 
               const newSm = matchedNode.soilMoisture !== undefined ? matchedNode.soilMoisture : plot.soilMoisture;
               const newTemp = matchedNode.airTemp !== undefined ? matchedNode.airTemp : plot.airTemp;

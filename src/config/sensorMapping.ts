@@ -5,13 +5,16 @@
 
 export type NodeOperationalStatus =
   | 'LIVE'
-  | 'SIMULATED'
+  | 'ONLINE'
+  | 'PENDING'
   | 'STALE'
   | 'OFFLINE'
   | 'NO_DATA'
   | 'UNKNOWN_SOURCE'
   | 'CONNECTION_ERROR'
-  | 'CALIBRATING';
+  | 'ERROR'
+  | 'CALIBRATING'
+  | 'SIMULATED';
 
 export type TelemetryFieldKey =
   | 'airTemp'
