@@ -328,3 +328,27 @@ export interface ExportFilter {
   eventType?: ActivityEventType | 'all';
   format?: 'csv' | 'excel';
 }
+
+export interface HistoricalSensorReading {
+  id: string;
+  node_id: string;
+  sensor_name: string;
+  sensor_key: string;
+  sensor_value: number;
+  unit: string;
+  sampled_at: string; // ISO 8601 UTC (5-min bucket)
+  device_timestamp?: string; // ISO 8601 UTC
+  received_at: string;
+  quality_status: 'VALID' | 'PROVISIONAL' | 'SUSPECT' | 'WARNING';
+  data_source?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface CollectorExecutionLog {
+  timestamp: string;
+  nodesInspected: string[];
+  nodesTransmitting: string[];
+  recordsCreated: number;
+  errors: string[];
+  cleanupDeletedCount?: number;
+}

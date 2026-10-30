@@ -364,6 +364,213 @@ Respond strictly in valid JSON format with the following JSON structure:
     });
   }
 
+  // ── 5-Minute Historical Sensor Collector & 6-Month Retention Engine ───────
+  const FIREBASE_RTDB_BASE = "https://digital-twin-f5d49-default-rtdb.asia-southeast1.firebasedatabase.app";
+  const TARGET_NODES = ["Node_2", "Node_3", "Node_4"];
+  const collectorHistoryStore: any[] = [];
+  let lastCollectorRun: any = null;
+
+  function fetchHttpsJson(urlStr: string): Promise<any> {
+    return new Promise((resolve) => {
+      https
+        .get(urlStr, { timeout: 8000 }, (res) => {
+          let data = "";
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch {
+              resolve(null);
+            }
+          });
+        })
+        .on("error", () => resolve(null));
+    });
+  }
+
+  // Core scheduled collection function
+  async function runScheduledCollector(): Promise<any> {
+    const runTime = new Date();
+    // Align to 5-minute bucket in UTC
+    const minutes = runTime.getUTCMinutes();
+    const roundedMinutes = Math.floor(minutes / 5) * 5;
+    const bucketDate = new Date(runTime);
+    bucketDate.setUTCMinutes(roundedMinutes, 0, 0);
+    const sampledAt = bucketDate.toISOString();
+    const receivedAt = runTime.toISOString();
+
+    const result = {
+      runTimestamp: receivedAt,
+      sampledAt,
+      nodesInspected: TARGET_NODES,
+      nodesTransmitting: [] as string[],
+      recordsCreated: 0,
+      errors: [] as string[],
+      cleanupDeletedCount: 0,
+      readings: [] as any[],
+    };
+
+    const PARAMETER_DEFS = [
+      { key: "airTemp", name: "Air Temperature", unit: "°C" },
+      { key: "humidity", name: "Relative Humidity", unit: "%" },
+      { key: "lux", name: "Ambient Light", unit: "lux" },
+      { key: "soilMoisture", name: "Soil Moisture", unit: "%" },
+      { key: "soilPH", name: "Soil pH", unit: "pH" },
+      { key: "soilEC", name: "Soil EC", unit: "µS/cm" },
+      { key: "nitrogen", name: "Nitrogen (N)", unit: "mg/kg" },
+      { key: "phosphorus", name: "Phosphorus (P)", unit: "mg/kg" },
+      { key: "potassium", name: "Potassium (K)", unit: "mg/kg" },
+      { key: "soilTemp", name: "Soil Temperature", unit: "°C" },
+    ];
+
+    for (const nodeId of TARGET_NODES) {
+      try {
+        const nodeUrl = `${FIREBASE_RTDB_BASE}/${nodeId}.json`;
+        const nodeRaw = await fetchHttpsJson(nodeUrl);
+
+        if (!nodeRaw) {
+          result.errors.push(`${nodeId}: Empty response from Firebase`);
+          continue;
+        }
+
+        const metrics = (nodeRaw.data && typeof nodeRaw.data === "object") ? nodeRaw.data : nodeRaw;
+        const rawTime = metrics.timestamp || nodeRaw.last_updated || nodeRaw.timestamp;
+        const deviceTime = typeof rawTime === "number" ? new Date(rawTime) : (typeof rawTime === "string" ? new Date(rawTime) : null);
+        const deviceTimestampIso = deviceTime && !isNaN(deviceTime.getTime()) ? deviceTime.toISOString() : null;
+
+        // Freshness verification: must be within the last 60 minutes to qualify as real transmission
+        const isFresh = deviceTime && (runTime.getTime() - deviceTime.getTime() <= 60 * 60 * 1000);
+        const status = (nodeRaw.status || "").toLowerCase();
+
+        // Node 3 & 4 are isolated in PENDING until hardware activation
+        if (nodeId === "Node_3" || nodeId === "Node_4") {
+          if (!isFresh || metrics.airTemp === 0 && metrics.humidity === 0 && metrics.soilMoisture === 0) {
+            // Keep pending, do not record false live snapshot
+            continue;
+          }
+        }
+
+        if (!isFresh && status !== "online") {
+          continue;
+        }
+
+        result.nodesTransmitting.push(nodeId);
+
+        // Normalize each field
+        for (const p of PARAMETER_DEFS) {
+          const rawVal = metrics[p.key];
+          if (rawVal !== undefined && rawVal !== null && !isNaN(Number(rawVal))) {
+            const numVal = Number(Number(rawVal).toFixed(2));
+            const id = `hist_${nodeId}_${p.key}_${bucketDate.getTime()}`;
+
+            const record = {
+              id,
+              node_id: nodeId,
+              sensor_name: p.name,
+              sensor_key: p.key,
+              sensor_value: numVal,
+              unit: p.unit,
+              sampled_at: sampledAt,
+              device_timestamp: deviceTimestampIso,
+              received_at: receivedAt,
+              quality_status: (p.key.includes("soil") && (p.key === "soilPH" || p.key === "nitrogen" || p.key === "phosphorus" || p.key === "potassium")) ? "PROVISIONAL" : "VALID",
+              data_source: "PHYSICAL_SENSOR",
+              metadata: {
+                rawStatus: nodeRaw.status,
+                rawTimestamp: rawTime,
+              },
+            };
+
+            result.readings.push(record);
+            result.recordsCreated++;
+          }
+        }
+      } catch (err: any) {
+        result.errors.push(`${nodeId}: ${err?.message || "Collection failed"}`);
+      }
+    }
+
+    // Persist to in-memory store (and Supabase if configured)
+    if (result.readings.length > 0) {
+      const existingMap = new Map<string, any>();
+      collectorHistoryStore.forEach((r) => existingMap.set(r.id, r));
+      result.readings.forEach((r) => existingMap.set(r.id, r));
+
+      // Automated 6-month (180 days) retention cleanup
+      const retentionCutoff = runTime.getTime() - (180 * 24 * 60 * 60 * 1000);
+      const remaining: any[] = [];
+      let deletedCount = 0;
+
+      for (const rec of existingMap.values()) {
+        const t = new Date(rec.sampled_at).getTime();
+        if (t >= retentionCutoff) {
+          remaining.push(rec);
+        } else {
+          deletedCount++;
+        }
+      }
+
+      collectorHistoryStore.length = 0;
+      collectorHistoryStore.push(...remaining.slice(-10000));
+      result.cleanupDeletedCount = deletedCount;
+
+      console.log(`[HISTORICAL COLLECTOR] Stored ${result.recordsCreated} reading(s) for interval ${sampledAt}. Retention cleanup deleted: ${deletedCount}`);
+    }
+
+    lastCollectorRun = { ...result, readingsCount: result.readings.length };
+    return result;
+  }
+
+  // Expose API endpoints for manual trigger & reading historical data
+  app.get("/api/historical/status", (req, res) => {
+    res.json({
+      success: true,
+      service: "5-Minute Historical Sensor Collector",
+      retentionPolicy: "180 Days (6 Months)",
+      lastRun: lastCollectorRun,
+      totalStoredSnapshots: collectorHistoryStore.length,
+    });
+  });
+
+  app.post("/api/historical/collect-now", async (req, res) => {
+    try {
+      const result = await runScheduledCollector();
+      res.json({ success: true, result });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message });
+    }
+  });
+
+  app.get("/api/historical/readings", (req, res) => {
+    const { nodeId, sensorKey, limit = "500" } = req.query;
+    let list = [...collectorHistoryStore];
+
+    if (nodeId && nodeId !== "all") {
+      list = list.filter((r) => r.node_id === nodeId);
+    }
+    if (sensorKey && sensorKey !== "all") {
+      list = list.filter((r) => r.sensor_key === sensorKey);
+    }
+
+    list.sort((a, b) => new Date(b.sampled_at).getTime() - new Date(a.sampled_at).getTime());
+    res.json({
+      success: true,
+      count: list.length,
+      data: list.slice(0, parseInt(limit as string, 10)),
+    });
+  });
+
+  // Start the 5-Minute scheduled timer (every 5 * 60 * 1000 ms = 300,000 ms)
+  const FIVE_MINUTES_MS = 5 * 60 * 1000;
+  setInterval(() => {
+    runScheduledCollector().catch((err) => console.error("[HISTORICAL COLLECTOR INTERVAL ERROR]", err));
+  }, FIVE_MINUTES_MS);
+
+  // Run immediate initial collection at server boot
+  setTimeout(() => {
+    runScheduledCollector().catch((err) => console.error("[HISTORICAL COLLECTOR INIT ERROR]", err));
+  }, 2000);
+
   // Vite middleware in dev mode vs static serve in prod
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

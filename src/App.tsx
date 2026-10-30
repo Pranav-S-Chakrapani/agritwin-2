@@ -18,6 +18,7 @@ import AIAdvisor from './pages/AIAdvisor';
 import VirtualFarm from './pages/VirtualFarm';
 import FieldLog from './pages/FieldLog';
 import Analytics from './pages/Analytics';
+import HistoricalAnalytics from './pages/HistoricalAnalytics';
 import WhatIfSimulator from './pages/WhatIfSimulator';
 import MapView from './pages/MapView';
 import CameraFeed from './pages/CameraFeed';
@@ -118,6 +119,7 @@ function App() {
                   <Route path="advisor" element={<ErrorBoundary moduleName="AI Agronomic Advisor"><AIAdvisor /></ErrorBoundary>} />
                   <Route path="vision" element={<ErrorBoundary moduleName="Crop Health Vision"><CropHealthAdvisor /></ErrorBoundary>} />
                   <Route path="analytics" element={<ErrorBoundary moduleName="Telemetry Analytics"><Analytics /></ErrorBoundary>} />
+                  <Route path="historical" element={<ErrorBoundary moduleName="Historical Sensor Analytics"><HistoricalAnalytics /></ErrorBoundary>} />
                   <Route path="history" element={<ErrorBoundary moduleName="Field Log"><FieldLog /></ErrorBoundary>} />
                   <Route path="activity-log" element={<ErrorBoundary moduleName="Activity Log"><ActivityLog /></ErrorBoundary>} />
                   <Route path="alerts" element={<ErrorBoundary moduleName="Alerts Engine"><Alerts /></ErrorBoundary>} />

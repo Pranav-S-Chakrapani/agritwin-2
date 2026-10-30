@@ -722,7 +722,85 @@ export async function getSupabaseTableCounts(): Promise<{
   }
 }
 
-// ── 13. Clear All Simulated Telemetry from Supabase ─────────────────────────
+// ── 14. Save Historical 5-Minute Readings to Supabase ───────────────────────
+export async function saveHistoricalReadingsToSupabase(readings: any[]): Promise<{ count: number; error: any }> {
+  if (!isSupabaseConfigured || !readings || readings.length === 0) {
+    return { count: 0, error: null };
+  }
+  try {
+    const { error, data } = await supabase
+      .from('historical_sensor_readings')
+      .upsert(readings, { onConflict: 'node_id,sensor_key,sampled_at' });
+    if (error) {
+      console.warn('[SUPABASE HISTORICAL WRITE ERROR]', error.message);
+      return { count: 0, error };
+    }
+    return { count: readings.length, error: null };
+  } catch (err: any) {
+    console.warn('[SUPABASE HISTORICAL EXCEPTION]', err?.message);
+    return { count: 0, error: err };
+  }
+}
+
+// ── 15. Fetch Historical Sensor Readings from Supabase ──────────────────────
+export async function fetchHistoricalReadingsFromSupabase(filter: {
+  nodeId?: string;
+  sensorKey?: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}): Promise<any[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    let query = supabase
+      .from('historical_sensor_readings')
+      .select('*')
+      .order('sampled_at', { ascending: false });
+
+    if (filter.nodeId && filter.nodeId !== 'all') {
+      query = query.eq('node_id', filter.nodeId);
+    }
+    if (filter.sensorKey && filter.sensorKey !== 'all') {
+      query = query.eq('sensor_key', filter.sensorKey);
+    }
+    if (filter.startDate) {
+      query = query.gte('sampled_at', filter.startDate);
+    }
+    if (filter.endDate) {
+      query = query.lte('sampled_at', filter.endDate);
+    }
+    query = query.limit(filter.limit || 500);
+
+    const { data, error } = await query;
+    if (error) {
+      console.warn('[SUPABASE FETCH HISTORICAL ERROR]', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err: any) {
+    console.warn('[SUPABASE FETCH HISTORICAL EXCEPTION]', err?.message);
+    return [];
+  }
+}
+
+// ── 16. Run 6-Month Retention Cleanup in Supabase ───────────────────────────
+export async function cleanupExpiredHistoricalReadingsInSupabase(): Promise<{ deletedCount: number; error: any }> {
+  if (!isSupabaseConfigured) return { deletedCount: 0, error: null };
+  try {
+    // 180 days cutoff
+    const cutoffDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await supabase
+      .from('historical_sensor_readings')
+      .delete({ count: 'exact' })
+      .lt('sampled_at', cutoffDate);
+    return { deletedCount: count || 0, error };
+  } catch (err: any) {
+    console.warn('[SUPABASE CLEANUP EXCEPTION]', err?.message);
+    return { deletedCount: 0, error: err };
+  }
+}
+
+// ── 17. Clear All Simulated Telemetry from Supabase ─────────────────────────
 export async function clearSimulatedTelemetryFromSupabase(): Promise<{ count: number; error: any }> {
   if (!isSupabaseConfigured) {
     return { count: 0, error: null };

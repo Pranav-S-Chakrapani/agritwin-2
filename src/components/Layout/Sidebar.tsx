@@ -29,6 +29,7 @@ import {
   X,
   LogOut,
   PlusCircle,
+  History as HistoryIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAgriStore } from '../../context/AgriStore';
@@ -231,6 +232,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
         <NavLink to="/analytics" className={navItemClass} onClick={onClose}>
           <LineChart className="at-nav-icon" />
           <span>Analytics</span>
+        </NavLink>
+
+        {/* 5b. Historical Sensor Ledger (6-Month 5-Min Telemetry) */}
+        <NavLink to="/historical" className={navItemClass} onClick={onClose}>
+          <HistoryIcon className="at-nav-icon" />
+          <span>Historical Data</span>
         </NavLink>
 
         {/* 6. Digital Twin (Contains 3D Live Farm View & My Farms/Plots) */}
