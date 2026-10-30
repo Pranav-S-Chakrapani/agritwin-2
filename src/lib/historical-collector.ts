@@ -111,3 +111,4 @@ export function buildHistoricalCsv(readings: HistoricalSensorReading[]): string 
 
   return [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
 }
+

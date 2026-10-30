@@ -585,3 +585,4 @@ export const HistoricalAnalytics: React.FC = () => {
 };
 
 export default HistoricalAnalytics;
+

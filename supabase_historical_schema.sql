@@ -57,3 +57,4 @@ $$;
 
 -- 5. Enable Supabase Realtime for historical updates (optional for live subscribers)
 ALTER PUBLICATION supabase_realtime ADD TABLE public.historical_sensor_readings;
+
