@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import {
   Menu,
@@ -8,6 +8,9 @@ import {
   ChevronDown,
   Sun,
   Moon,
+  LogOut,
+  Users,
+  Settings,
 } from 'lucide-react';
 import { useAgriStore } from '../../context/AgriStore';
 import { useAuth } from '../../context/AuthContext';
@@ -15,8 +18,11 @@ import { useAuth } from '../../context/AuthContext';
 const GlobalTopBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean }> = ({ onMenuToggle }) => {
   const { activeFarmland, alerts, farmlands, plots, sensors, selectFarmland, isFirebaseLive } = useAgriStore();
   const [farmDropdownOpen, setFarmDropdownOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const navigate = useNavigate();
 
-  const { userProfile, role, isAdmin } = useAuth();
+  const { userProfile, role, isAdmin, logout } = useAuth();
 
   const [isDark, setIsDark] = React.useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -117,7 +123,14 @@ const GlobalTopBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean }>
           <input
             className="at-input"
             type="text"
-            placeholder="Search..."
+            placeholder="Search farm, sensor, report..."
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && globalSearch.trim()) {
+                navigate(`/activity-log?search=${encodeURIComponent(globalSearch.trim())}`);
+              }
+            }}
             style={{
               paddingLeft: 34,
               fontSize: 13,
@@ -345,40 +358,141 @@ const GlobalTopBar: React.FC<{ onMenuToggle: () => void; sidebarOpen: boolean }>
           {isDark ? <Sun style={{ width: 16, height: 16 }} /> : <Moon style={{ width: 16, height: 16 }} />}
         </button>
 
-        {/* User Pill from Reference ("Welcome Researcher ▾") */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '4px 10px',
-            background: 'var(--color-surface-muted)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-lg)',
-            cursor: 'default',
-            flexShrink: 0,
-            height: 36,
-          }}
-          title={`${userProfile?.full_name || 'Researcher'} — ${role}`}
-        >
-          <div className="at-avatar" style={{ width: 24, height: 24, fontSize: 11, borderRadius: '50%', background: '#0f172a', color: 'white' }}>
-            {userProfile?.full_name?.charAt(0)?.toUpperCase() || 'R'}
-          </div>
-          <div style={{ lineHeight: 1.2, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <span
-              className="at-truncate at-hide-xs"
-              style={{ fontSize: 12, color: 'var(--color-text-muted)' }}
+        {/* User Pill with Dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '4px 10px',
+              background: 'var(--color-surface-muted)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-lg)',
+              cursor: 'pointer',
+              flexShrink: 0,
+              height: 36,
+            }}
+            title={`${userProfile?.full_name || 'Researcher'} — ${role}`}
+            aria-label="User profile options"
+          >
+            <div className="at-avatar" style={{ width: 24, height: 24, fontSize: 11, borderRadius: '50%', background: '#0f172a', color: 'white' }}>
+              {userProfile?.full_name?.charAt(0)?.toUpperCase() || 'R'}
+            </div>
+            <div style={{ lineHeight: 1.2, display: 'flex', flexDirection: 'column', minWidth: 0, textAlign: 'left' }}>
+              <span
+                className="at-truncate at-hide-xs"
+                style={{ fontSize: 12, color: 'var(--color-text-muted)' }}
+              >
+                Welcome
+              </span>
+              <span
+                className="at-truncate"
+                style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}
+              >
+                {userProfile?.full_name?.split(' ')[0] || 'Researcher'}
+              </span>
+            </div>
+            <ChevronDown style={{ width: 12, height: 12, color: 'var(--color-text-muted)' }} />
+          </button>
+
+          {userDropdownOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 42,
+                right: 0,
+                width: 220,
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-xl)',
+                boxShadow: 'var(--shadow-lg)',
+                padding: '8px',
+                zIndex: 50,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+              }}
             >
-              Welcome
-            </span>
-            <span
-              className="at-truncate"
-              style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}
-            >
-              {userProfile?.full_name?.split(' ')[0] || 'Researcher'}
-            </span>
-          </div>
-          <ChevronDown style={{ width: 12, height: 12, color: 'var(--color-text-muted)' }} />
+              <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                  {userProfile?.full_name || 'Researcher'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                  {userProfile?.email || 'user@agritwin.com'} ({role})
+                </div>
+              </div>
+
+              {isAdmin && (
+                <Link
+                  to="/users"
+                  onClick={() => setUserDropdownOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px',
+                    borderRadius: 'var(--radius-lg)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: 'var(--color-text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Users style={{ width: 14, height: 14, color: '#6366f1' }} />
+                  <span>User Management</span>
+                </Link>
+              )}
+
+              {isAdmin && (
+                <Link
+                  to="/developer-tools"
+                  onClick={() => setUserDropdownOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px',
+                    borderRadius: 'var(--radius-lg)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: 'var(--color-text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Settings style={{ width: 14, height: 14, color: '#16a34a' }} />
+                  <span>Developer Diagnostics</span>
+                </Link>
+              )}
+
+              <button
+                onClick={async () => {
+                  setUserDropdownOpen(false);
+                  await logout();
+                  navigate('/login');
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px',
+                  borderRadius: 'var(--radius-lg)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#dc2626',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  width: '100%',
+                  textAlign: 'left',
+                }}
+              >
+                <LogOut style={{ width: 14, height: 14, color: '#dc2626' }} />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

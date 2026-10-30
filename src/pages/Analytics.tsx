@@ -473,7 +473,12 @@ export const Analytics: React.FC = () => {
                     onChange={e => setSessionName(e.target.value)}
                     className="text-xs bg-slate-50 text-slate-800 border border-slate-200 rounded-xl px-3 py-1.5 outline-none focus:ring-2 focus:ring-sky-500 font-medium"
                   />
-                  <button onClick={handleSaveSession} className="bg-sky-600 hover:bg-sky-700 text-white p-2 rounded-xl transition-all shadow-xs cursor-pointer font-bold active:scale-95">
+                  <button
+                    onClick={handleSaveSession}
+                    className="bg-sky-600 hover:bg-sky-700 text-white p-2 rounded-xl transition-all shadow-xs cursor-pointer font-bold active:scale-95"
+                    title="Save Comparison Session"
+                    aria-label="Save Comparison Session"
+                  >
                     <Save className="w-4 h-4" />
                   </button>
                 </div>

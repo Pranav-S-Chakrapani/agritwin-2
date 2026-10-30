@@ -2,31 +2,43 @@
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { Farmland, PlotBed, IoTSensor, TelemetryObservation, FieldActivity, FarmAlert } from '../types';
 
-const DEFAULT_SUPABASE_URL = 'https://wuxoulvgscbjpgyngyiw.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_blRwFF9JR2iHR_TIVaEL-Q_NpdqyKF5';
+const DEFAULT_SUPABASE_URL = '';
+const DEFAULT_SUPABASE_ANON_KEY = '';
 
 const env = (typeof import.meta !== 'undefined' && (import.meta as any).env) || {};
-export const SUPABASE_URL = env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-export const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+export const SUPABASE_URL = (env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
+export const SUPABASE_ANON_KEY = (env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY).trim();
 
+// A valid configuration requires non-empty user-supplied credentials, not a dead demo project or dummy placeholder
 export const isSupabaseConfigured = Boolean(
   SUPABASE_URL &&
   SUPABASE_ANON_KEY &&
+  !SUPABASE_URL.includes('wuxoulvgscbjpgyngyiw') &&
+  !SUPABASE_URL.includes('your-project') &&
   !SUPABASE_URL.includes('xyzcompany') &&
-  !SUPABASE_ANON_KEY.includes('placeholder')
+  !SUPABASE_ANON_KEY.includes('placeholder') &&
+  !SUPABASE_ANON_KEY.includes('your-supabase-anon-key')
 );
 
-export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
+// Fallback safe dummy client when unconfigured so standard helper calls do not throw undefined reference errors
+const SAFE_FALLBACK_URL = 'https://offline-local.supabase.co';
+const SAFE_FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.dummy-signature';
+
+export const supabase: SupabaseClient = createClient(
+  isSupabaseConfigured ? SUPABASE_URL : SAFE_FALLBACK_URL,
+  isSupabaseConfigured ? SUPABASE_ANON_KEY : SAFE_FALLBACK_KEY,
+  {
+    auth: {
+      persistSession: isSupabaseConfigured,
+      autoRefreshToken: isSupabaseConfigured,
     },
-  },
-});
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+    },
+  }
+);
 const debounceTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 function debouncedRefetch(key: string, fn: () => void, delayMs: number = 1500) {
   if (debounceTimers[key]) clearTimeout(debounceTimers[key]);
@@ -374,6 +386,8 @@ export function subscribeToSupabaseMultiTable(
     });
 
   let channelCounter = 0;
+  const channelRetryCounts: Record<string, number> = {};
+  const MAX_RECONNECT_ATTEMPTS = 3;
 
   function createChannel(
     baseName: string,
@@ -382,6 +396,8 @@ export function subscribeToSupabaseMultiTable(
     logTag: string
   ): RealtimeChannel {
     const uniqueName = `${baseName}_${++channelCounter}`;
+    channelRetryCounts[baseName] = channelRetryCounts[baseName] || 0;
+
     const ch = supabase
       .channel(uniqueName)
       .on(
@@ -391,6 +407,7 @@ export function subscribeToSupabaseMultiTable(
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
+          channelRetryCounts[baseName] = 0;
           setRealtimeStatus('Connected');
         } else if (
           status === 'CHANNEL_ERROR' ||
@@ -398,16 +415,24 @@ export function subscribeToSupabaseMultiTable(
           status === 'CLOSED'
         ) {
           if (destroyed) return;
-          setRealtimeStatus('Reconnecting');
           supabase.removeChannel(ch);
           const idx = activeChannels.indexOf(ch);
           if (idx !== -1) activeChannels.splice(idx, 1);
 
+          channelRetryCounts[baseName]++;
+          if (channelRetryCounts[baseName] > MAX_RECONNECT_ATTEMPTS) {
+            console.warn(`[SUPABASE REALTIME] Channel "${baseName}" reached max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}). Halting retries.`);
+            setRealtimeStatus('Disconnected');
+            return;
+          }
+
+          setRealtimeStatus('Reconnecting');
+          const backoffDelay = Math.min(3000 * Math.pow(1.5, channelRetryCounts[baseName]), 15000);
           const timer = setTimeout(() => {
             if (destroyed) return;
             const newCh = createChannel(baseName, table, handler, logTag);
             activeChannels.push(newCh);
-          }, 3000);
+          }, backoffDelay);
 
           reconnectTimers.push(timer);
         }

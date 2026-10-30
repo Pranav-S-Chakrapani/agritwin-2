@@ -54,7 +54,26 @@ export const fetchComparisonData = async (arg1: string[] | string, arg2: string,
   return Array.from(mergedMap.values());
 };
 
+export const getSavedComparisonSessions = (): any[] => {
+  try {
+    const raw = localStorage.getItem('agritwin_comparison_sessions');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
 export const saveComparisonSession = async (sessionName: string, arg1: string[] | string, arg2: string, arg3?: string) => {
   if (!sessionName) return;
-  // Persistent local storage comparison session helper
+  const sessions = getSavedComparisonSessions();
+  const newSession = {
+    id: `session_${Date.now()}`,
+    name: sessionName,
+    plots: Array.isArray(arg1) ? arg1 : [arg1, arg2].filter(Boolean),
+    parameter: typeof arg2 === 'string' && !arg3 ? arg2 : arg3 || 'airTemp',
+    createdAt: new Date().toISOString()
+  };
+  sessions.unshift(newSession);
+  localStorage.setItem('agritwin_comparison_sessions', JSON.stringify(sessions.slice(0, 20)));
+  return newSession;
 };

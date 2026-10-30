@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { fetchComparisonData, saveComparisonSession } from '../lib/comparison-helper';
+import { fetchComparisonData, saveComparisonSession, getSavedComparisonSessions } from '../lib/comparison-helper';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Save, Layers, CheckSquare, Square, Sprout } from 'lucide-react';
+import { Save, Layers, CheckSquare, Square, Sprout, Clock } from 'lucide-react';
 import { getPlots, getCrops } from '../lib/farm-storage';
 import { PlotBed, Crop } from '../types';
 
@@ -17,6 +17,10 @@ export const CropComparison: React.FC = () => {
   const [sessionName, setSessionName] = useState('');
   const [savedSessions, setSavedSessions] = useState<any[]>([]);
 
+  const refreshSessions = () => {
+    setSavedSessions(getSavedComparisonSessions());
+  };
+
   useEffect(() => {
     const loadedPlots = getPlots();
     const loadedCrops = getCrops();
@@ -26,10 +30,7 @@ export const CropComparison: React.FC = () => {
     const initialPlotIds = loadedPlots.map(p => p.id);
     setSelectedPlots(initialPlotIds);
 
-    const fetchSessions = async () => {
-      // Local persistent comparison sessions
-    };
-    fetchSessions();
+    refreshSessions();
 
     if (initialPlotIds.length > 0) {
       handleCompare(initialPlotIds, 'airTemp');
@@ -69,9 +70,10 @@ export const CropComparison: React.FC = () => {
   };
 
   const handleSaveSession = async () => {
-    if (!sessionName || !selectedPlots.length) return;
-    await saveComparisonSession(sessionName, selectedPlots, parameter);
+    if (!sessionName.trim() || !selectedPlots.length) return;
+    await saveComparisonSession(sessionName.trim(), selectedPlots, parameter);
     setSessionName('');
+    refreshSessions();
     alert('Comparison session saved successfully!');
   };
 
@@ -115,11 +117,10 @@ export const CropComparison: React.FC = () => {
                 <div
                   key={p.id}
                   onClick={() => togglePlot(p.id)}
-                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between cursor-pointer transition-colors ${
-                    selectedPlots.includes(p.id)
-                      ? 'bg-sky-50 text-sky-800 border-sky-200 shadow-xs'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                  }`}
+                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between cursor-pointer transition-colors ${selectedPlots.includes(p.id)
+                    ? 'bg-sky-50 text-sky-800 border-sky-200 shadow-xs'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
                 >
                   <div className="flex items-center space-x-2">
                     <span className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }} />
@@ -166,10 +167,33 @@ export const CropComparison: React.FC = () => {
               <button
                 onClick={handleSaveSession}
                 className="bg-emerald-800 hover:bg-emerald-700 text-white p-2.5 rounded-xl transition-all shadow-xs cursor-pointer"
+                title="Save Session"
+                aria-label="Save Session"
               >
                 <Save className="w-4 h-4" />
               </button>
             </div>
+
+            {savedSessions.length > 0 && (
+              <div className="pt-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Saved Sessions ({savedSessions.length})
+                </span>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {savedSessions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => loadSession(s)}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 flex items-center justify-between border border-slate-100 bg-white"
+                    >
+                      <span className="truncate">{s.name}</span>
+                      <Clock className="w-3 h-3 text-slate-400 shrink-0 ml-1" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

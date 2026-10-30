@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ClipboardList,
   Calendar,
@@ -35,13 +36,21 @@ export const ActivityLog: React.FC = () => {
   const { fieldActivities, farmlands, plots, telemetryObservations, alerts, sensorNodes } = useAgriStore();
   const { userProfile } = useAuth();
   const { nodesList } = useAllSensorsStatus();
+  const [searchParams] = useSearchParams();
 
   const [activeTab, setActiveTab] = useState<'telemetry' | 'activity' | 'alerts'>('telemetry');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [nodeFilter, setNodeFilter] = useState<string>('all');
   const [plotFilter, setPlotFilter] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  
+  const [searchTerm, setSearchTerm] = useState<string>(() => searchParams.get('search') || '');
+
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q) {
+      setSearchTerm(q);
+    }
+  }, [searchParams]);
+
   // Custom Date Range Pickers
   const [customFrom, setCustomFrom] = useState<string>('');
   const [customTo, setCustomTo] = useState<string>('');
@@ -372,7 +381,7 @@ export const ActivityLog: React.FC = () => {
 
       {/* ── Filter Controls Card ── */}
       <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-        
+
         {/* Time Preset Buttons */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {TIME_TABS.map((tab) => (
@@ -403,7 +412,7 @@ export const ActivityLog: React.FC = () => {
               <Target style={{ width: 16, height: 16, color: '#16a34a' }} />
               Jump to Exact Moment:
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 12, color: '#64748b' }}>Date:</span>
               <input

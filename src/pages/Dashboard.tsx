@@ -587,7 +587,17 @@ export const Dashboard: React.FC = () => {
                   severity={alert.severity || 'warning'}
                   zoneName={alert.zoneName}
                   actionLabel="Review"
-                  onAction={() => setSelectedZone('zone_3')}
+                  onAction={() => {
+                    if (alert.zoneName && alert.zoneName.toLowerCase().includes('zone 1')) {
+                      setSelectedZone('zone_1');
+                    } else if (alert.zoneName && alert.zoneName.toLowerCase().includes('zone 2')) {
+                      setSelectedZone('zone_2');
+                    } else if (alert.zoneName && alert.zoneName.toLowerCase().includes('zone 4')) {
+                      setSelectedZone('zone_4');
+                    } else {
+                      setSelectedZone('zone_3');
+                    }
+                  }}
                 />
               ))}
             </div>

@@ -134,9 +134,13 @@ export const LoginScreen: React.FC<Props> = ({ onLogin }) => {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-emerald-600 hover:text-emerald-500">
+                <button
+                  type="button"
+                  onClick={() => alert('Password reset instructions have been dispatched to your administrator or registered email.')}
+                  className="font-medium text-emerald-600 hover:text-emerald-500 bg-transparent border-none p-0 cursor-pointer"
+                >
                   Forgot your password?
-                </a>
+                </button>
               </div>
             </div>
 
