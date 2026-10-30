@@ -205,8 +205,59 @@ export const Dashboard: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 24 }}>
 
+      {/* ── Live Transmitting Banner (When Node 2 is actively streaming physical telemetry) ── */}
+      {isOnline && (
+        <div
+          style={{
+            background: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: '12px',
+            padding: '12px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: '8px', background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Radio style={{ width: 16, height: 16 }} />
+            </div>
+            <div>
+              <strong style={{ fontSize: 13, color: '#15803d' }}>
+                Node 2 Live Streaming — Physical Sensor Active
+              </strong>
+              <p style={{ fontSize: 12, color: '#166534', margin: '2px 0 0' }}>
+                Firebase Realtime Database connected to <code style={{ fontFamily: 'monospace', fontWeight: 700 }}>Node_2/data</code>. {relativeLastSeenText}. Node 3 and Node 4 standing by in Pending state.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: '6px', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac' }}>
+              ● LIVE
+            </span>
+            <Link
+              to="/sensors"
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '6px 14px',
+                borderRadius: '8px',
+                background: '#16a34a',
+                color: '#ffffff',
+                textDecoration: 'none',
+              }}
+            >
+              View Node Telemetry →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* ── Calibration & Live Summary Banner (When Hardware is in Calibration) ── */}
-      {calibratingCount > 0 && (
+      {calibratingCount > 0 && !isOnline && (
         <div
           style={{
             background: '#fff7ed',
@@ -246,7 +297,7 @@ export const Dashboard: React.FC = () => {
               textDecoration: 'none',
             }}
           >
-            Inspect 7 Real Nodes →
+            Inspect Sensor Nodes →
           </Link>
         </div>
       )}
