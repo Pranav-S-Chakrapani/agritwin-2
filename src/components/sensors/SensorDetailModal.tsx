@@ -40,7 +40,7 @@ export const SensorDetailModal: React.FC<SensorDetailModalProps> = ({
   onClose,
   plotName,
 }) => {
-  const statusInfo = useSensorStatus(nodeId || 'Node_1');
+  const statusInfo = useSensorStatus(nodeId || 'Node_2');
   const node = statusInfo.node;
   const isOnline = statusInfo.isLive;
   const isCalibrating = statusInfo.statusMode === 'CALIBRATING';

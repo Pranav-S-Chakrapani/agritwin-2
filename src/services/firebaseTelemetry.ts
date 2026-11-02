@@ -212,17 +212,16 @@ class FirebaseTelemetryService {
     }
 
     // 0. Pending / Waiting for initial activation or data
-    const isPendingNode = (nodeId === 'Node_3' || nodeId === 'Node_4' || nodeId === 'Node_1' || nodeId === 'Node_5' || nodeId === 'Node_6' || nodeId === 'Node_7') && (!hasValidTime || ageMs > 24 * 60 * 60 * 1000);
-    if (!hasValidTime || isPendingNode) {
-      const isExplicitPending = nodeId === 'Node_3' || nodeId === 'Node_4';
+    // If no valid timestamp or data has not been updated in over 2 hours
+    if (!hasValidTime || ageMs > 2 * 60 * 60 * 1000) {
       return {
         isLive: false,
-        statusMode: isExplicitPending ? 'PENDING' : 'NO_DATA',
-        statusText: isExplicitPending ? 'Pending · Hardware Awaiting' : 'No Data',
+        statusMode: 'PENDING',
+        statusText: 'Pending · Waiting for Data',
         badgeColor: 'muted',
         ageMs,
         isCalibrating: false,
-        relativeTimeText: isExplicitPending ? 'Pending hardware integration' : 'No data recorded',
+        relativeTimeText: 'Pending data transmission',
         sourceClassification: 'unknown',
         fieldProvisionalFlags: nodeFieldFlags,
       };
@@ -353,7 +352,8 @@ class FirebaseTelemetryService {
     this.unsubscribeAll();
     this.setConnectionState('Connecting...');
 
-    const targetNodes = nodeIds.length > 0 ? nodeIds : ['Node_1', 'Node_2', 'Node_3', 'Node_4', 'Node_5', 'Node_6', 'Node_7'];
+    // Standardized 3-Node Architecture: strictly Node_2, Node_3, Node_4
+    const targetNodes = ['Node_2', 'Node_3', 'Node_4'];
 
     const dispatchBatch = () => {
       if (this.batchTimeout) {
@@ -462,7 +462,7 @@ class FirebaseTelemetryService {
 
     const sensorNode: SensorNode = {
       id: nodeId,
-      name: rawVal.name || `Node ${nodeId.replace(/^Node_/i, '')}`,
+      name: nodeId, // Strict exact device identifier: Node_2, Node_3, Node_4
       airTemp: airTemp !== undefined && !isNaN(airTemp) ? Number(airTemp.toFixed(1)) : undefined,
       humidity: humidity !== undefined && !isNaN(humidity) ? Number(humidity.toFixed(1)) : undefined,
       lux: lux !== undefined && !isNaN(lux) ? Math.round(lux) : undefined,
@@ -596,7 +596,7 @@ class FirebaseTelemetryService {
       farmId,
       plotId,
       sensorCode: nodeId,
-      nodeName: `Sensor ${nodeId}`,
+      nodeName: nodeId,
       assignedPlotCode: rawVal.plot_id || 'Plot 1',
       sensorTypes: ['Soil Moisture', 'Air Temperature', 'Humidity', 'Soil pH', 'Soil EC', 'NPK'],
       status: liveness.isLive ? 'Online' : 'Offline',
@@ -609,23 +609,10 @@ class FirebaseTelemetryService {
   }
 
   /**
-   * Subscribe to sensor nodes (alias for subscribeToMappedNodes)
+   * Subscribe to sensor nodes (Strictly standardized to Node_2, Node_3, Node_4)
    */
   public subscribeToSensorNodes(callback: SensorNodesCallback, farmId?: string): () => void {
-    const storedMappings = localStorage.getItem('agritwin_sensor_node_mappings');
-    let mappedNodes: string[] = ['Node_1', 'Node_2', 'Node_3', 'Node_4', 'Node_5', 'Node_6', 'Node_7'];
-    if (storedMappings) {
-      try {
-        const parsed = JSON.parse(storedMappings);
-        const storedIds = parsed.map((m: any) => m.firebase_node_id);
-        if (storedIds.length > 0) {
-          const allNodes = new Set([...storedIds, 'Node_1', 'Node_2', 'Node_3', 'Node_4', 'Node_5', 'Node_6', 'Node_7']);
-          mappedNodes = Array.from(allNodes);
-        }
-      } catch (e) {
-        // fallback
-      }
-    }
+    const mappedNodes: string[] = ['Node_2', 'Node_3', 'Node_4'];
     return this.subscribeToMappedNodes(mappedNodes, callback, farmId || 'farm_iiit_dharwad');
   }
 

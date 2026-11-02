@@ -38,13 +38,12 @@ export const MySensors: React.FC = () => {
 
   // Associate mapped plots
   const enrichedNodes = useMemo(() => {
-    return nodesList.map((node, idx) => {
+    return nodesList.map((node) => {
       let assignedPlotId = 'unassigned';
       let plotName = 'Unassigned';
-      if (idx === 0) { assignedPlotId = 'plot_dharwad_01'; plotName = 'Zone 1 (Wheat)'; }
-      else if (idx === 1) { assignedPlotId = 'plot_dharwad_02'; plotName = 'Zone 2 (Rice)'; }
-      else if (idx === 2) { assignedPlotId = 'plot_dharwad_03'; plotName = 'Zone 3 (Maize)'; }
-      else if (idx === 3) { assignedPlotId = 'plot_dharwad_04'; plotName = 'Zone 4 (Cotton)'; }
+      if (node.id === 'Node_2') { assignedPlotId = 'plot_dharwad_02'; plotName = 'Zone 2 (Plot 2)'; }
+      else if (node.id === 'Node_3') { assignedPlotId = 'plot_dharwad_03'; plotName = 'Zone 3 (Plot 3)'; }
+      else if (node.id === 'Node_4') { assignedPlotId = 'plot_dharwad_04'; plotName = 'Zone 4 (Plot 4)'; }
 
       return {
         ...node,
@@ -84,10 +83,10 @@ export const MySensors: React.FC = () => {
             }}>
               <Radio style={{ width: 18, height: 18, color: '#6366f1' }} />
             </div>
-            Hardware Sensor Nodes (Node_1 to Node_7)
+            Hardware Sensor Nodes (Node_2, Node_3, Node_4)
           </h1>
           <p className="at-page-subtitle">
-            Individual telemetry streams scoped per-node from Firebase Realtime Database with live freshness tracking & calibration controls.
+            Standardized 3-node hardware telemetry stream from Firebase Realtime Database with live freshness tracking & diagnostics.
           </p>
         </div>
 
@@ -120,7 +119,7 @@ export const MySensors: React.FC = () => {
             <div className="at-metric-icon" style={{ background: '#ede9fe' }}><Cpu style={{ width: 16, height: 16, color: '#6366f1' }} /></div>
           </div>
           <div className="at-metric-value">{totalCount}</div>
-          <div className="at-metric-sub">Node_1 through Node_7</div>
+          <div className="at-metric-sub">Node_2, Node_3, Node_4</div>
         </div>
 
         <div className="at-metric-card" onClick={() => setFilterMode('ONLINE')} style={{ cursor: 'pointer' }}>
@@ -131,7 +130,7 @@ export const MySensors: React.FC = () => {
           <div className="at-metric-value" style={{ color: liveCount > 0 ? '#16a34a' : '#64748b' }}>
             {liveCount}
           </div>
-          <div className="at-metric-sub">Node 2 live physical telemetry</div>
+          <div className="at-metric-sub">Live physical telemetry</div>
         </div>
 
         <div className="at-metric-card" onClick={() => setFilterMode('PENDING')} style={{ cursor: 'pointer' }}>
@@ -140,7 +139,7 @@ export const MySensors: React.FC = () => {
             <div className="at-metric-icon" style={{ background: '#f1f5f9' }}><Clock style={{ width: 16, height: 16, color: '#64748b' }} /></div>
           </div>
           <div className="at-metric-value" style={{ color: '#64748b' }}>{pendingCount}</div>
-          <div className="at-metric-sub">Node 3 & Node 4 hardware pending</div>
+          <div className="at-metric-sub">Awaiting node telemetry</div>
         </div>
 
         <div className="at-metric-card" onClick={() => setFilterMode('CALIBRATING')} style={{ cursor: 'pointer' }}>
@@ -262,25 +261,6 @@ export const MySensors: React.FC = () => {
             </div>
           );
         })}
-
-        {/* Unassigned Aux Nodes (Node_5, Node_6, Node_7) */}
-        {filteredNodes.some((s) => s.assignedPlotId === 'unassigned') && (
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px 20px' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Auxiliary / Unassigned Hardware Nodes (Node_5, Node_6, Node_7)
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
-              {filteredNodes.filter((s) => s.assignedPlotId === 'unassigned').map((node) => (
-                <UnifiedSensorCard
-                  key={node.id}
-                  node={node}
-                  compact
-                  onOpenDetail={(id) => setInspectNodeId(id)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── Deep-Dive Per-Sensor Detail Modal ── */}

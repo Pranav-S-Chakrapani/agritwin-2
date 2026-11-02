@@ -74,7 +74,7 @@ export interface AllNodesStatusSummary {
 }
 
 /**
- * Shared Hook: Aggregates all 7 Firebase hardware nodes (Node_1 to Node_7)
+ * Shared Hook: Aggregates the 3 active Firebase hardware nodes (Node_2, Node_3, Node_4)
  * with unified status and field-level provisional flags.
  */
 export function useAllSensorsStatus(): AllNodesStatusSummary {
@@ -90,7 +90,7 @@ export function useAllSensorsStatus(): AllNodesStatusSummary {
   }, []);
 
   return useMemo(() => {
-    const nodeIds = ['Node_1', 'Node_2', 'Node_3', 'Node_4', 'Node_5', 'Node_6', 'Node_7'];
+    const nodeIds = ['Node_2', 'Node_3', 'Node_4'];
     let liveCount = 0;
     let offlineCount = 0;
     let calibratingCount = 0;
@@ -99,11 +99,11 @@ export function useAllSensorsStatus(): AllNodesStatusSummary {
     const nodesList = nodeIds.map((nodeId) => {
       const existing = sensorNodes?.[nodeId];
 
-      // Strictly preserve existing data; if not yet received, mark with honest NO_DATA/PENDING state
-      const defaultStatus: NodeOperationalStatus = (nodeId === 'Node_3' || nodeId === 'Node_4') ? 'PENDING' : 'NO_DATA';
+      // Standardize: strictly use exact device identifier NODE_2, NODE_3, NODE_4
+      const defaultStatus: NodeOperationalStatus = 'NO_DATA';
       const node: SensorNode = existing || {
         id: nodeId,
-        name: `Sensor ${nodeId}`,
+        name: nodeId,
         isOnline: false,
         statusMode: defaultStatus,
         freshnessStatus: defaultStatus,

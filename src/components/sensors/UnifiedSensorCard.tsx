@@ -215,18 +215,26 @@ export const UnifiedSensorCard: React.FC<UnifiedSensorCardProps> = ({
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
-                {node.id}
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', letterSpacing: '0.02em' }}>
+                {node.id.toUpperCase()}
               </span>
-              {node.displayName && (
-                <span style={{ fontSize: 11, color: '#64748b' }}>
-                  ({node.displayName})
-                </span>
-              )}
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  background: evaluated.sourceClassification === 'physical' ? '#dcfce7' : (evaluated.sourceClassification === 'simulated' ? '#e0f2fe' : '#f1f5f9'),
+                  color: evaluated.sourceClassification === 'physical' ? '#166534' : (evaluated.sourceClassification === 'simulated' ? '#0369a1' : '#475569'),
+                  border: '1px solid rgba(0,0,0,0.06)',
+                }}
+              >
+                {evaluated.sourceClassification === 'physical' ? 'LIVE SENSOR' : (evaluated.sourceClassification === 'simulated' ? 'DEMO DATA' : 'STANDBY')}
+              </span>
             </div>
             {node.plotName && (
               <span style={{ fontSize: 11, color: '#64748b' }}>
-                Mapped: <strong>{node.plotName}</strong>
+                Mapped Plot: <strong>{node.plotName}</strong>
               </span>
             )}
           </div>

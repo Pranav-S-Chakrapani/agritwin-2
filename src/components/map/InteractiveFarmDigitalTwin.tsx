@@ -153,7 +153,8 @@ export const InteractiveFarmDigitalTwin: React.FC<InteractiveFarmDigitalTwinProp
     const list = plots.slice(0, 4);
     return [0, 1, 2, 3].map((idx) => {
       const zoneKey = `zone-${idx + 1}`;
-      const assignedNodes = zoneSensorMapping[zoneKey] || [`Node_${idx + 1}`];
+      const defaultNodeId = idx === 0 ? 'Node_2' : idx === 1 ? 'Node_2' : idx === 2 ? 'Node_3' : 'Node_4';
+      const assignedNodes = zoneSensorMapping[zoneKey] || [defaultNodeId];
 
       let matchedSensorNode: SensorNode | undefined;
       for (const nid of assignedNodes) {
@@ -163,7 +164,7 @@ export const InteractiveFarmDigitalTwin: React.FC<InteractiveFarmDigitalTwinProp
         }
       }
       if (!matchedSensorNode) {
-        matchedSensorNode = sensorNodes[`Node_${idx + 1}`] || sensorNodes[`Node_${idx + 2}`];
+        matchedSensorNode = sensorNodes[defaultNodeId];
       }
 
       const plot = list[idx] || {
@@ -177,7 +178,7 @@ export const InteractiveFarmDigitalTwin: React.FC<InteractiveFarmDigitalTwinProp
         area: 4.0,
         areaUnit: 'acres',
         cropId: 'crop_wheat',
-        sensorNodeId: assignedNodes[0] || `Node_${idx + 1}`,
+        sensorNodeId: assignedNodes[0] || defaultNodeId,
         daysPlanted: 50,
       } as PlotBed;
 

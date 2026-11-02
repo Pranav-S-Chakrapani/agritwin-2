@@ -41,13 +41,13 @@ export const PrototypeModeBanner: React.FC = () => {
             </span>
             <span className="text-xs font-bold text-slate-300">
               {isLive 
-                ? (isFirebaseLive ? 'Live sensor telemetry streaming from Firebase Realtime Database.' : 'Listening to Firebase Node_2/data (asia-southeast1)...')
+                ? (isFirebaseLive ? 'Live sensor telemetry streaming from Firebase Realtime Database.' : 'Listening to Firebase Node_2, Node_3, Node_4 (asia-southeast1)...')
                 : (isDemoTelemetryActive ? 'Real-time background demo telemetry generating to Supabase.' : 'Physical IoT hardware pending gateway connection.')}
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-0.5">
             {isLive ? (
-              <span>FIREBASE RTDB STREAM — Live readings from Node_2 (Temp, Humidity, Lux, NPK, Soil EC/Moisture) persisted to Supabase (<code className="text-emerald-300 font-mono text-[10px]">public.telemetry_observations</code>).</span>
+              <span>FIREBASE RTDB STREAM — Live readings from Node_2, Node_3, Node_4 (Temp, Humidity, Lux, NPK, Soil EC/Moisture) persisted to Supabase (<code className="text-emerald-300 font-mono text-[10px]">public.telemetry_observations</code>).</span>
             ) : isDemoTelemetryActive ? (
               <span>DEMO TELEMETRY ACTIVE — Values are generated for prototype testing and persisted to Supabase (<code className="text-cyan-300 font-mono text-[10px]">dataSource = "SIMULATED"</code>).</span>
             ) : (

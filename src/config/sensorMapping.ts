@@ -34,7 +34,7 @@ export interface FieldAccuracyConfig {
 }
 
 export interface SensorNode {
-  id: string; // e.g. "Node_1", "Node_2", "Node_3"
+  id: string; // "Node_2", "Node_3", "Node_4"
   name?: string;
   airTemp?: number;
   humidity?: number;
@@ -60,10 +60,17 @@ export interface SensorNode {
 export type ZoneHealthStatus = 'Normal' | 'Attention' | 'Critical';
 
 /**
+ * Standardized 3-Sensor Node Architecture:
+ * Strictly Node_2, Node_3, Node_4.
+ */
+export const ACTIVE_SENSOR_NODES = ['Node_2', 'Node_3', 'Node_4'] as const;
+export type ActiveSensorNodeId = typeof ACTIVE_SENSOR_NODES[number];
+
+/**
  * Initial Zone to Sensor Node Mapping.
  */
 export const DEFAULT_ZONE_SENSOR_MAPPING: Record<string, string[]> = {
-  'zone-1': ['Node_1'],
+  'zone-1': ['Node_2'],
   'zone-2': ['Node_2'],
   'zone-3': ['Node_3'],
   'zone-4': ['Node_4'],
@@ -73,13 +80,9 @@ export const DEFAULT_ZONE_SENSOR_MAPPING: Record<string, string[]> = {
  * Default node-level calibration flag (Defaults to true while client repositions)
  */
 export const DEFAULT_CALIBRATING_NODES: Record<string, boolean> = {
-  'Node_1': true,
   'Node_2': true,
   'Node_3': true,
   'Node_4': true,
-  'Node_5': true,
-  'Node_6': true,
-  'Node_7': true,
 };
 
 /**
@@ -143,9 +146,9 @@ export function getAllNodeFieldProvisionalMap(): Record<string, Record<Telemetry
     // fallback
   }
 
-  // Initialize all 7 nodes with default field accuracy config
+  // Initialize only the 3 active sensor nodes (Node_2, Node_3, Node_4)
   const initial: Record<string, Record<TelemetryFieldKey, boolean>> = {};
-  ['Node_1', 'Node_2', 'Node_3', 'Node_4', 'Node_5', 'Node_6', 'Node_7'].forEach((nodeId) => {
+  ['Node_2', 'Node_3', 'Node_4'].forEach((nodeId) => {
     initial[nodeId] = { ...DEFAULT_FIELD_PROVISIONAL_MAP };
   });
   return initial;

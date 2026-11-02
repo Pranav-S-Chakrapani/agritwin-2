@@ -37,39 +37,32 @@ import { firebaseTelemetry } from '../../services/firebaseTelemetry';
 
 export interface SensorNodeMapping {
   id: string;
-  firebase_node_id: string; // e.g. "Node_1", "Node_2"
+  firebase_node_id: string; // e.g. "Node_2", "Node_3", "Node_4"
   plot_id: string; // Plot ID
-  display_name: string; // e.g. "PLOT-A01 — North Soil Probe"
+  display_name: string; // e.g. "Plot 1 — Node_2 Probe"
   created_at: string;
 }
 
 const DEFAULT_NODE_MAPPINGS: SensorNodeMapping[] = [
   {
-    id: 'map_01',
-    firebase_node_id: 'Node_1',
-    plot_id: 'plot_dharwad_01',
-    display_name: 'Zone 1 — North Wheat Canopy Probe',
-    created_at: new Date().toISOString(),
-  },
-  {
     id: 'map_02',
     firebase_node_id: 'Node_2',
-    plot_id: 'plot_dharwad_02',
-    display_name: 'Zone 2 — East Rice Basin Probe',
+    plot_id: 'plot_dharwad_01',
+    display_name: 'Plot 1 — Node_2 Probe',
     created_at: new Date().toISOString(),
   },
   {
     id: 'map_03',
     firebase_node_id: 'Node_3',
-    plot_id: 'plot_dharwad_03',
-    display_name: 'Zone 3 — South Maize Drip Station',
+    plot_id: 'plot_dharwad_02',
+    display_name: 'Plot 2 — Node_3 Probe',
     created_at: new Date().toISOString(),
   },
   {
     id: 'map_04',
     firebase_node_id: 'Node_4',
-    plot_id: 'plot_dharwad_04',
-    display_name: 'Zone 4 — West Cotton Sensor Array',
+    plot_id: 'plot_dharwad_03',
+    display_name: 'Plot 3 — Node_4 Probe',
     created_at: new Date().toISOString(),
   },
 ];
@@ -137,10 +130,12 @@ export const SensorMappingAdmin: React.FC = () => {
           }
         });
 
-        // Ensure default Node_1 through Node_7 are tracked
-        ['Node_1', 'Node_2', 'Node_3', 'Node_4', 'Node_5', 'Node_6', 'Node_7'].forEach((k) => {
-          if (!nodes[k]) {
-            nodes[k] = val[k] || { data: { airTemp: 28, soilMoisture: 45, humidity: 65, soilPH: 6.8 }, status: 'online' };
+        // Discover active Node_2, Node_3, Node_4
+        ['Node_2', 'Node_3', 'Node_4'].forEach((k) => {
+          if (val[k]) {
+            nodes[k] = val[k];
+          } else {
+            nodes[k] = { data: { airTemp: 28, soilMoisture: 45, humidity: 65, soilPH: 6.8 }, status: 'online' };
           }
         });
 
@@ -225,7 +220,7 @@ export const SensorMappingAdmin: React.FC = () => {
             Sensor Node Mapping & Field Accuracy
           </h1>
           <p style={{ fontSize: 13, color: '#475569', margin: '4px 0 0' }}>
-            Map incoming Firebase sensor hardware nodes (`Node_1` to `Node_7`) to real farmland plots, toggle node-wide calibration, and configure field-level provisional accuracy.
+            Map incoming Firebase sensor hardware nodes (`Node_2`, `Node_3`, `Node_4`) to real farmland plots, toggle node-wide calibration, and configure field-level provisional accuracy.
           </p>
         </div>
 
@@ -511,7 +506,7 @@ export const SensorMappingAdmin: React.FC = () => {
             </h3>
           </div>
           <span style={{ fontSize: 12, color: '#64748b' }}>
-            Discovered from Firebase RTDB · Standby nodes (Node_5, Node_6, Node_7)
+            Discovered from Firebase RTDB (Node_2, Node_3, Node_4)
           </span>
         </div>
 

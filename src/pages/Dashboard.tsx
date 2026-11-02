@@ -74,7 +74,7 @@ export const Dashboard: React.FC = () => {
 
   const { liveCount, calibratingCount, offlineCount } = useAllSensorsStatus();
 
-  // Primary active telemetry reference (Node_2 / Node_1)
+  // Primary active telemetry reference (Node_2)
   const node2Status = useSensorStatus('Node_2');
   const node = node2Status.node || Object.values(sensorNodes || {})[0];
   const activePlots = useMemo(() => PlotService.getPlotsForFarm(plots, activeFarmland?.id), [plots, activeFarmland]);
@@ -173,7 +173,7 @@ export const Dashboard: React.FC = () => {
         description: `Soil moisture is at ${liveMoisture}% on active stream.`,
         time: relativeLastSeenText,
         severity: 'warning' as const,
-        zoneName: 'Zone 2 (Rice Basin / Node_2)',
+        zoneName: 'Zone 2 (Node_2)',
       });
     }
 
@@ -184,7 +184,7 @@ export const Dashboard: React.FC = () => {
         description: `Air temperature reached ${liveTemp}°C on real-time stream.`,
         time: relativeLastSeenText,
         severity: 'warning' as const,
-        zoneName: 'Zone 2 (Rice Basin / Node_2)',
+        zoneName: 'Zone 2 (Node_2)',
       });
     }
 

@@ -551,7 +551,8 @@ export const AgriStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setPlots((prevPlots) => {
             return prevPlots.map((plot, idx) => {
               const zoneKey = `zone-${idx + 1}`;
-              const assignedNodes = zoneSensorMapping[zoneKey] || [`Node_${idx + 1}`];
+              const defaultNodeId = idx === 0 ? 'Node_2' : idx === 1 ? 'Node_2' : idx === 2 ? 'Node_3' : 'Node_4';
+              const assignedNodes = zoneSensorMapping[zoneKey] || [defaultNodeId];
               
               // Find matching sensor node data for this zone
               let matchedNode: SensorNode | undefined;

@@ -75,7 +75,7 @@ export const ActivityLog: React.FC = () => {
 
     (telemetryObservations || []).forEach((obs) => {
       const ts = obs.measurementTimestamp;
-      const nodeId = obs.sensorId || obs.deviceId || 'Node_1';
+      const nodeId = obs.sensorId || obs.deviceId || 'Node_2';
       const key = `${nodeId}_${ts}`;
 
       if (!groups.has(key)) {
@@ -162,7 +162,7 @@ export const ActivityLog: React.FC = () => {
   const closestMomentMatches = useMemo(() => {
     if (!targetMomentEpoch || allWideTelemetryRecords.length === 0) return [];
 
-    const nodes = ['Node_1', 'Node_2', 'Node_3', 'Node_4', 'Node_5', 'Node_6', 'Node_7'];
+    const nodes = ['Node_2', 'Node_3', 'Node_4'];
     const results: Array<{ record: WideTelemetryRecord; diffSec: number }> = [];
 
     nodes.forEach((nid) => {
@@ -491,8 +491,8 @@ export const ActivityLog: React.FC = () => {
               onChange={(e) => setNodeFilter(e.target.value)}
               style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: 12, background: '#ffffff' }}
             >
-              <option value="all">All 7 Hardware Nodes (Node_1 – Node_7)</option>
-              {['Node_1', 'Node_2', 'Node_3', 'Node_4', 'Node_5', 'Node_6', 'Node_7'].map((nid) => (
+              <option value="all">All Active Hardware Nodes (Node_2, Node_3, Node_4)</option>
+              {['Node_2', 'Node_3', 'Node_4'].map((nid) => (
                 <option key={nid} value={nid}>{nid}</option>
               ))}
             </select>

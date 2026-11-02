@@ -303,9 +303,9 @@ export const HistoricalAnalytics: React.FC = () => {
             className="at-input at-select"
             style={{ height: 38, fontSize: 13 }}
           >
-            <option value="Node_2">Node 2 (Operational · Live Stream)</option>
-            <option value="Node_3">Node 3 (Pending Integration)</option>
-            <option value="Node_4">Node 4 (Pending Integration)</option>
+            <option value="Node_2">Node_2 (Hardware Telemetry)</option>
+            <option value="Node_3">Node_3 (Hardware Telemetry)</option>
+            <option value="Node_4">Node_4 (Hardware Telemetry)</option>
           </select>
         </div>
 
@@ -451,9 +451,7 @@ export const HistoricalAnalytics: React.FC = () => {
         <div style={{ height: 280, width: '100%' }}>
           {chartData.length === 0 ? (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>
-              {selectedNode === 'Node_3' || selectedNode === 'Node_4'
-                ? `${selectedNode} is pending hardware integration. No historical readings recorded yet.`
-                : 'No historical readings found for this timeframe.'}
+              No historical readings found for this timeframe on {selectedNode}.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -518,9 +516,7 @@ export const HistoricalAnalytics: React.FC = () => {
               {filteredReadings.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                    {selectedNode === 'Node_3' || selectedNode === 'Node_4'
-                      ? `Hardware integration pending for ${selectedNode}. Standby for physical activation.`
-                      : 'No historical records found matching current query.'}
+                    No historical records found matching current query for {selectedNode}.
                   </td>
                 </tr>
               ) : (
