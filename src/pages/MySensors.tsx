@@ -41,9 +41,9 @@ export const MySensors: React.FC = () => {
     return nodesList.map((node) => {
       let assignedPlotId = 'unassigned';
       let plotName = 'Unassigned';
-      if (node.id === 'Node_2') { assignedPlotId = 'plot_dharwad_02'; plotName = 'Zone 2 (Plot 2)'; }
-      else if (node.id === 'Node_3') { assignedPlotId = 'plot_dharwad_03'; plotName = 'Zone 3 (Plot 3)'; }
-      else if (node.id === 'Node_4') { assignedPlotId = 'plot_dharwad_04'; plotName = 'Zone 4 (Plot 4)'; }
+      if (node.id === 'Node_2') { assignedPlotId = 'plot_dharwad_02'; plotName = 'PLOT-A02'; }
+      else if (node.id === 'Node_3') { assignedPlotId = 'plot_dharwad_03'; plotName = 'PLOT-A03'; }
+      else if (node.id === 'Node_4') { assignedPlotId = 'plot_dharwad_04'; plotName = 'PLOT-A04'; }
 
       return {
         ...node,
@@ -233,7 +233,7 @@ export const MySensors: React.FC = () => {
                   </div>
                   <div>
                     <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-                      {plot.code}: {plot.name} ({crop?.name || 'Crop'})
+                      {plot.code}: {plot.name}
                     </span>
                     <span style={{ fontSize: 11, color: '#64748b', marginLeft: 10 }}>
                       {plotSensors.length} Node{plotSensors.length === 1 ? '' : 's'} Assigned

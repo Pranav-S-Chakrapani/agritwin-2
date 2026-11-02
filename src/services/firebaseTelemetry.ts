@@ -212,16 +212,18 @@ class FirebaseTelemetryService {
     }
 
     // 0. Pending / Waiting for initial activation or data
-    // If no valid timestamp or data has not been updated in over 2 hours
-    if (!hasValidTime || ageMs > 2 * 60 * 60 * 1000) {
+    // Node_3 and Node_4 are pending hardware integration per client hardware status
+    // Node_2 is the only currently operational hardware node sending verified telemetry
+    const isExplicitPendingNode = nodeId === 'Node_3' || nodeId === 'Node_4';
+    if (!hasValidTime || ageMs > 2 * 60 * 60 * 1000 || isExplicitPendingNode) {
       return {
         isLive: false,
         statusMode: 'PENDING',
-        statusText: 'Pending · Waiting for Data',
+        statusText: isExplicitPendingNode ? 'Pending Hardware Activation' : 'Pending · Waiting for Data',
         badgeColor: 'muted',
         ageMs,
         isCalibrating: false,
-        relativeTimeText: 'Pending data transmission',
+        relativeTimeText: isExplicitPendingNode ? 'Pending physical activation' : 'Pending data transmission',
         sourceClassification: 'unknown',
         fieldProvisionalFlags: nodeFieldFlags,
       };
@@ -489,7 +491,12 @@ class FirebaseTelemetryService {
     const isNewReading = previousLogged !== timeKey && hasValidTime;
     const observations: TelemetryObservation[] = [];
 
-    const plotId = rawVal.plot_id || 'plot_dharwad_01';
+    const plotId = rawVal.plot_id || (
+      nodeId === 'Node_2' ? 'plot_dharwad_02' :
+      nodeId === 'Node_3' ? 'plot_dharwad_03' :
+      nodeId === 'Node_4' ? 'plot_dharwad_04' :
+      'plot_dharwad_01'
+    );
 
     if (isNewReading) {
       this.lastLoggedFirebaseTimestamps.set(nodeId, timeKey);
@@ -591,13 +598,20 @@ class FirebaseTelemetryService {
       }
     }
 
+    const assignedPlotCode = rawVal.plot_id || (
+      nodeId === 'Node_2' ? 'PLOT-A02' :
+      nodeId === 'Node_3' ? 'PLOT-A03' :
+      nodeId === 'Node_4' ? 'PLOT-A04' :
+      'PLOT-A01'
+    );
+
     const iotSensor: IoTSensor = {
       id: `sensor_${nodeId}`,
       farmId,
       plotId,
       sensorCode: nodeId,
       nodeName: nodeId,
-      assignedPlotCode: rawVal.plot_id || 'Plot 1',
+      assignedPlotCode,
       sensorTypes: ['Soil Moisture', 'Air Temperature', 'Humidity', 'Soil pH', 'Soil EC', 'NPK'],
       status: liveness.isLive ? 'Online' : 'Offline',
       batteryPct: sensorNode.battery || 95,

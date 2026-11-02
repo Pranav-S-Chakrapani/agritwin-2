@@ -43,7 +43,12 @@ import {
 } from '../lib/historical-collector';
 import { fetchHistoricalReadingsFromSupabase, isSupabaseConfigured } from '../lib/supabase';
 
+import { useAgriStore } from '../context/AgriStore';
+
 export const HistoricalAnalytics: React.FC = () => {
+  const { activeSections } = useAgriStore();
+
+  const [selectedPlot, setSelectedPlot] = useState<string>('plot_dharwad_02');
   const [selectedNode, setSelectedNode] = useState<string>('Node_2');
   const [selectedSensorKey, setSelectedSensorKey] = useState<string>('airTemp');
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d' | '6m'>('6m');
@@ -294,18 +299,53 @@ export const HistoricalAnalytics: React.FC = () => {
 
       {/* ── Selection Control Bar ── */}
       <div className="at-card" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        {/* Plot Selector (Hierarchy with Node) */}
+        <div>
+          <label className="at-label" style={{ fontSize: 11, fontWeight: 700 }}>Select Farmland Plot</label>
+          <select
+            value={selectedPlot}
+            onChange={(e) => {
+              const p = e.target.value;
+              setSelectedPlot(p);
+              if (p === 'plot_dharwad_02') setSelectedNode('Node_2');
+              else if (p === 'plot_dharwad_03') setSelectedNode('Node_3');
+              else if (p === 'plot_dharwad_04') setSelectedNode('Node_4');
+            }}
+            className="at-input at-select"
+            style={{ height: 38, fontSize: 13 }}
+          >
+            <option value="all">All Plots</option>
+            {activeSections.map((p) => {
+              const node = p.code === 'PLOT-A02' || p.id === 'plot_dharwad_02' ? 'Node_2' :
+                           p.code === 'PLOT-A03' || p.id === 'plot_dharwad_03' ? 'Node_3' :
+                           p.code === 'PLOT-A04' || p.id === 'plot_dharwad_04' ? 'Node_4' : '';
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.code}: {p.name}{node ? ` [${node}]` : ''}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
         {/* Node Selector */}
         <div>
           <label className="at-label" style={{ fontSize: 11, fontWeight: 700 }}>Select Hardware Node</label>
           <select
             value={selectedNode}
-            onChange={(e) => setSelectedNode(e.target.value)}
+            onChange={(e) => {
+              const n = e.target.value;
+              setSelectedNode(n);
+              if (n === 'Node_2') setSelectedPlot('plot_dharwad_02');
+              else if (n === 'Node_3') setSelectedPlot('plot_dharwad_03');
+              else if (n === 'Node_4') setSelectedPlot('plot_dharwad_04');
+            }}
             className="at-input at-select"
             style={{ height: 38, fontSize: 13 }}
           >
-            <option value="Node_2">Node_2 (Hardware Telemetry)</option>
-            <option value="Node_3">Node_3 (Hardware Telemetry)</option>
-            <option value="Node_4">Node_4 (Hardware Telemetry)</option>
+            <option value="Node_2">NODE_2 (Mapped: PLOT-A02)</option>
+            <option value="Node_3">NODE_3 (Mapped: PLOT-A03)</option>
+            <option value="Node_4">NODE_4 (Mapped: PLOT-A04)</option>
           </select>
         </div>
 

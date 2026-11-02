@@ -47,22 +47,22 @@ const DEFAULT_NODE_MAPPINGS: SensorNodeMapping[] = [
   {
     id: 'map_02',
     firebase_node_id: 'Node_2',
-    plot_id: 'plot_dharwad_01',
-    display_name: 'Plot 1 — Node_2 Probe',
+    plot_id: 'plot_dharwad_02',
+    display_name: 'PLOT-A02 — Node_2 Probe',
     created_at: new Date().toISOString(),
   },
   {
     id: 'map_03',
     firebase_node_id: 'Node_3',
-    plot_id: 'plot_dharwad_02',
-    display_name: 'Plot 2 — Node_3 Probe',
+    plot_id: 'plot_dharwad_03',
+    display_name: 'PLOT-A03 — Node_3 Probe',
     created_at: new Date().toISOString(),
   },
   {
     id: 'map_04',
     firebase_node_id: 'Node_4',
-    plot_id: 'plot_dharwad_03',
-    display_name: 'Plot 3 — Node_4 Probe',
+    plot_id: 'plot_dharwad_04',
+    display_name: 'PLOT-A04 — Node_4 Probe',
     created_at: new Date().toISOString(),
   },
 ];
