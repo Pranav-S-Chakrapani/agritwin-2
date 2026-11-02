@@ -194,18 +194,15 @@ export const MySensors: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Per-Node Grid Grouped by Plot ── */}
+      {/* ── Per-Node Grid Grouped by Node ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {plots.map((plot) => {
-          const crop = crops.find((c) => c.id === plot.cropId);
-          const plotSensors = filteredNodes.filter((s) => s.assignedPlotId === plot.id);
-          const isExpanded = Boolean(expandedPlots[plot.id]);
-
-          if (plotSensors.length === 0 && filterMode !== 'ALL') return null;
+        {filteredNodes.map((node) => {
+          const isExpanded = Boolean(expandedPlots[node.id] ?? true);
+          const mappedPlot = plots.find((p) => p.id === node.assignedPlotId || p.code === node.plotName);
 
           return (
             <div
-              key={plot.id}
+              key={node.id}
               style={{
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
@@ -214,9 +211,9 @@ export const MySensors: React.FC = () => {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
               }}
             >
-              {/* Plot Section Header */}
+              {/* Node Section Header */}
               <div
-                onClick={() => togglePlotExpand(plot.id)}
+                onClick={() => setExpandedPlots((prev) => ({ ...prev, [node.id]: !prev[node.id] }))}
                 style={{
                   padding: '14px 20px',
                   background: '#f8fafc',
@@ -228,15 +225,15 @@ export const MySensors: React.FC = () => {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Sprout style={{ width: 16, height: 16 }} />
+                  <div style={{ width: 28, height: 28, borderRadius: '8px', background: '#ede9fe', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Radio style={{ width: 16, height: 16 }} />
                   </div>
                   <div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-                      {plot.code}: {plot.name}
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', letterSpacing: '0.02em' }}>
+                      {node.id.toUpperCase()}
                     </span>
                     <span style={{ fontSize: 11, color: '#64748b', marginLeft: 10 }}>
-                      {plotSensors.length} Node{plotSensors.length === 1 ? '' : 's'} Assigned
+                      Mapped Plot: <strong>{node.plotName || mappedPlot?.code || 'PLOT-A0' + node.id.replace(/\D/g, '')}</strong>
                     </span>
                   </div>
                 </div>
@@ -248,14 +245,12 @@ export const MySensors: React.FC = () => {
 
               {/* Node Card Details */}
               {isExpanded && (
-                <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-                  {plotSensors.map((node) => (
-                    <UnifiedSensorCard
-                      key={node.id}
-                      node={node}
-                      onOpenDetail={(id) => setInspectNodeId(id)}
-                    />
-                  ))}
+                <div style={{ padding: '16px 20px' }}>
+                  <UnifiedSensorCard
+                    key={node.id}
+                    node={node}
+                    onOpenDetail={(id) => setInspectNodeId(id)}
+                  />
                 </div>
               )}
             </div>
