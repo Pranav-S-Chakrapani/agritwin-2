@@ -21,7 +21,8 @@ export const SensorProvenance: React.FC<SensorProvenanceProps> = ({
   const safePlots = Array.isArray(plots) ? plots : [];
   const plot = safePlots.find(p => p && (p.id === obs.plotId || p.code === obs.plotId));
   const sensorId = obs.deviceId || obs.sensorId || '—';
-  const sectionLabel = plot ? `${plot.code} (${plot.name})` : obs.plotId;
+  const cleanPlotCode = plot ? plot.code : (obs.plotId?.includes('_') ? (obs.plotId === 'plot_dharwad_02' ? 'PLOT-A02' : obs.plotId === 'plot_dharwad_03' ? 'PLOT-A03' : obs.plotId === 'plot_dharwad_04' ? 'PLOT-A04' : obs.plotId) : obs.plotId);
+  const sectionLabel = cleanPlotCode;
   const farmLabel = farmland?.name || obs.farmId || '—';
 
   const sourceColor =

@@ -212,18 +212,16 @@ class FirebaseTelemetryService {
     }
 
     // 0. Pending / Waiting for initial activation or data
-    // Node_3 and Node_4 are pending hardware integration per client hardware status
-    // Node_2 is the only currently operational hardware node sending verified telemetry
-    const isExplicitPendingNode = nodeId === 'Node_3' || nodeId === 'Node_4';
-    if (!hasValidTime || ageMs > 2 * 60 * 60 * 1000 || isExplicitPendingNode) {
+    // If no valid timestamp or data has not been updated in over 2 hours
+    if (!hasValidTime || ageMs > 2 * 60 * 60 * 1000) {
       return {
         isLive: false,
         statusMode: 'PENDING',
-        statusText: isExplicitPendingNode ? 'Pending Hardware Activation' : 'Pending · Waiting for Data',
+        statusText: 'Pending · Waiting for Data',
         badgeColor: 'muted',
         ageMs,
         isCalibrating: false,
-        relativeTimeText: isExplicitPendingNode ? 'Pending physical activation' : 'Pending data transmission',
+        relativeTimeText: 'Pending data transmission',
         sourceClassification: 'unknown',
         fieldProvisionalFlags: nodeFieldFlags,
       };

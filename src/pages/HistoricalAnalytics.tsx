@@ -315,16 +315,18 @@ export const HistoricalAnalytics: React.FC = () => {
             style={{ height: 38, fontSize: 13 }}
           >
             <option value="all">All Plots</option>
-            {activeSections.map((p) => {
-              const node = p.code === 'PLOT-A02' || p.id === 'plot_dharwad_02' ? 'Node_2' :
-                           p.code === 'PLOT-A03' || p.id === 'plot_dharwad_03' ? 'Node_3' :
-                           p.code === 'PLOT-A04' || p.id === 'plot_dharwad_04' ? 'Node_4' : '';
-              return (
-                <option key={p.id} value={p.id}>
-                  {p.code}: {p.name}{node ? ` [${node}]` : ''}
-                </option>
-              );
-            })}
+            {activeSections
+              .filter(p => ['PLOT-A02', 'PLOT-A03', 'PLOT-A04', 'plot_dharwad_02', 'plot_dharwad_03', 'plot_dharwad_04'].includes(p.id) || ['PLOT-A02', 'PLOT-A03', 'PLOT-A04'].includes(p.code))
+              .map((p) => {
+                const node = p.code === 'PLOT-A02' || p.id === 'plot_dharwad_02' ? 'Node_2' :
+                             p.code === 'PLOT-A03' || p.id === 'plot_dharwad_03' ? 'Node_3' :
+                             p.code === 'PLOT-A04' || p.id === 'plot_dharwad_04' ? 'Node_4' : '';
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.code} [{node}]
+                  </option>
+                );
+              })}
           </select>
         </div>
 
